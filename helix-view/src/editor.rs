@@ -289,6 +289,8 @@ pub struct Config {
     pub default_line_ending: LineEndingConfig,
     /// Enables smart tab
     pub smart_tab: Option<SmartTabConfig>,
+    /// Whether to render rainbow highlights. Defaults to `false`.
+    pub rainbow_brackets: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Eq, PartialOrd, Ord)]
@@ -843,6 +845,7 @@ impl Default for Config {
             workspace_lsp_roots: Vec::new(),
             default_line_ending: LineEndingConfig::default(),
             smart_tab: Some(SmartTabConfig::default()),
+            rainbow_brackets: false,
         }
     }
 }
@@ -1168,8 +1171,7 @@ impl Editor {
             return;
         }
 
-        let scopes = theme.scopes();
-        self.syn_loader.set_scopes(scopes.to_vec());
+        self.syn_loader.set_scopes(theme.scopes().to_vec());
 
         match preview {
             ThemeAction::Preview => {
