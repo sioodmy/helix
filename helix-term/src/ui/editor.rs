@@ -22,7 +22,7 @@ use helix_core::{
 };
 use helix_view::{
     document::{Mode, SCRATCH_BUFFER_NAME},
-    editor::{CompleteAction, CursorShapeConfig},
+    editor::{CompleteAction, CursorShapeConfig, LineNumber},
     graphics::{Color, CursorKind, Modifier, Rect, Style},
     input::{KeyEvent, MouseButton, MouseEvent, MouseEventKind},
     keyboard::{KeyCode, KeyModifiers},
@@ -32,7 +32,7 @@ use std::{num::NonZeroUsize, path::PathBuf, rc::Rc};
 
 use tui::buffer::Buffer as Surface;
 
-use super::statusline;
+use super::{document::render_text, statusline};
 use super::{document::LineDecoration, lsp::SignatureHelp};
 
 pub struct EditorView {
@@ -175,16 +175,6 @@ impl EditorView {
             Box::new(highlights)
         };
 
-        Self::render_gutter(
-            editor,
-            doc,
-            view,
-            view.area,
-            theme,
-            is_focused,
-            &mut line_decorations,
-        );
-
         if is_focused {
             let cursor = doc
                 .selection(view.id)
@@ -197,6 +187,8 @@ impl EditorView {
             translated_positions.push((cursor, Box::new(update_cursor_cache)));
         }
 
+        Self::render_gutter(editor, doc, view, theme, is_focused, &mut line_decorations);
+
         render_document(
             surface,
             inner,
@@ -208,6 +200,21 @@ impl EditorView {
             &mut line_decorations,
             &mut translated_positions,
         );
+
+        if config.sticky_context {
+            let _line_nr = Self::render_sticky_context(
+                editor,
+                doc,
+                view,
+                surface,
+                &text_annotations,
+                &mut line_decorations,
+                &mut translated_positions,
+                theme,
+            )
+            .unwrap_or_default();
+        }
+
         Self::render_rulers(editor, doc, view, inner, surface, theme);
 
         // if we're not at the edge of the screen, draw a right border
@@ -579,7 +586,6 @@ impl EditorView {
         editor: &'d Editor,
         doc: &'d Document,
         view: &View,
-        viewport: Rect,
         theme: &Theme,
         is_focused: bool,
         line_decorations: &mut Vec<Box<(dyn LineDecoration + 'd)>>,
@@ -592,6 +598,7 @@ impl EditorView {
             .collect();
 
         let mut offset = 0;
+        let viewport = view.area;
 
         let gutter_style = theme.get("ui.gutter");
         let gutter_selected_style = theme.get("ui.gutter.selected");
@@ -694,6 +701,130 @@ impl EditorView {
             Rect::new(viewport.right() - width, viewport.y + 1, width, height),
             surface,
         );
+    }
+
+    /// Render the sticky context
+    pub fn render_sticky_context(
+        editor: &Editor,
+        doc: &Document,
+        view: &View,
+        surface: &mut Surface,
+        doc_annotations: &TextAnnotations,
+        line_decoration: &mut [Box<dyn LineDecoration + '_>],
+        translated_positions: &mut [TranslatedPosition],
+        theme: &Theme,
+    ) -> Option<Vec<usize>> {
+        let syntax = doc.syntax()?;
+        let tree = syntax.tree();
+        let text = doc.text().slice(..);
+        let viewport = view.inner_area(doc);
+        let top_byte = text.char_to_byte(view.offset.anchor);
+
+        let context_nodes = doc
+            .language_config()
+            .and_then(|lc| lc.sticky_context_nodes.as_ref());
+
+        let mut parent = tree
+            .root_node()
+            .descendant_for_byte_range(top_byte, top_byte)
+            .and_then(|n| n.parent());
+
+        // context is list of numbers of lines that should be rendered in the LSP context
+        let mut context: Vec<usize> = Vec::new();
+
+        while let Some(node) = parent {
+            // if the node is smaller than half the viewport height, skip
+            if (node.end_position().row - node.start_position().row) < viewport.height as usize / 2
+            {
+                parent = node.parent();
+                continue;
+            }
+
+            let line = text.byte_to_line(node.start_byte());
+
+            // if parent of previous node is still on the same line, use the parent node
+            // or if the parent of previous node overlaps with the current node
+            if let Some(&prev_line) = context.last() {
+                if prev_line == line {
+                    context.pop();
+                }
+            }
+
+            if context_nodes.map_or(true, |nodes| nodes.iter().any(|n| n == node.kind())) {
+                context.push(line);
+            }
+
+            parent = node.parent();
+        }
+
+        // we render from top most (last in the list)
+        context.reverse();
+
+        // allow a maximum of half the viewport height
+        // to be occupied by the sticky context
+        if context.len() > viewport.height as usize / 2 {
+            context = context
+                .into_iter()
+                .take(viewport.height as usize / 2)
+                .collect();
+        }
+
+        // TODO: this probably needs it's own style, although it seems to work well even with cursorline
+        let context_style = theme.get("ui.cursorline.primary");
+
+        let mut context_area = viewport;
+        context_area.height = 1;
+
+        let mut line_numbers = Vec::new();
+
+        for line_num in &context {
+            let line_num_anchor = text.line_to_char(*line_num);
+
+            surface.clear_with(context_area, context_style);
+
+            let highlights = Self::doc_syntax_highlights(doc, line_num_anchor, 1, theme);
+
+            let mut renderer = TextRenderer::new(
+                surface,
+                doc,
+                theme,
+                view.offset.horizontal_offset,
+                context_area,
+            );
+
+            let mut new_offset = view.offset;
+            new_offset.anchor = line_num_anchor;
+
+            render_text(
+                &mut renderer,
+                text,
+                new_offset,
+                &doc.text_format(context_area.width, Some(theme)),
+                doc_annotations,
+                highlights,
+                theme,
+                line_decoration,
+                translated_positions,
+            );
+
+            context_area.y += 1;
+            let line_number = match editor.config().line_number {
+                LineNumber::Absolute => *line_num,
+                LineNumber::Relative => {
+                    if editor.mode() == Mode::Insert {
+                        *line_num
+                    } else {
+                        let res = top_byte - *line_num;
+                        match res {
+                            n if n < 2 => 1,
+                            _ => res - 1,
+                        }
+                    }
+                }
+            };
+            line_numbers.push(line_number);
+        }
+        Some(line_numbers)
     }
 
     /// Apply the highlighting on the lines where a cursor is active

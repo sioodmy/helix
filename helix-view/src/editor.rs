@@ -274,6 +274,9 @@ pub struct Config {
     /// Whether to color modes with different colors. Defaults to `false`.
     pub color_modes: bool,
     pub soft_wrap: SoftWrap,
+
+    /// Display context of current cursor line if it is outside the view.
+    pub sticky_context: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -772,6 +775,7 @@ impl Default for Config {
             indent_guides: IndentGuidesConfig::default(),
             color_modes: false,
             soft_wrap: SoftWrap::default(),
+            sticky_context: false,
         }
     }
 }
