@@ -35,6 +35,13 @@ use tui::buffer::Buffer as Surface;
 use super::{document::render_text, statusline};
 use super::{document::LineDecoration, lsp::SignatureHelp};
 
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+pub struct StickyNode {
+    line_nr: usize,
+    start_byte: usize,
+    end_byte: usize,
+}
+
 pub struct EditorView {
     pub keymaps: Keymaps,
     on_next_key: Option<OnKeyCallback>,
@@ -42,13 +49,7 @@ pub struct EditorView {
     last_insert: (commands::MappableCommand, Vec<InsertEvent>),
     pub(crate) completion: Option<Completion>,
     spinners: ProgressSpinners,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
-pub struct StickyNode {
-    line_nr: usize,
-    start_byte: usize,
-    end_byte: usize,
+    sticky_nodes: Option<Vec<StickyNode>>,
 }
 
 #[derive(Debug, Clone)]
@@ -73,6 +74,7 @@ impl EditorView {
             last_insert: (commands::MappableCommand::normal_mode, Vec::new()),
             completion: None,
             spinners: ProgressSpinners::default(),
+            sticky_nodes: None,
         }
     }
 
@@ -81,7 +83,7 @@ impl EditorView {
     }
 
     pub fn render_view(
-        &self,
+        &mut self,
         editor: &Editor,
         doc: &Document,
         view: &View,
@@ -182,11 +184,7 @@ impl EditorView {
             Box::new(highlights)
         };
 
-        let context = Self::calculate_sticky_nodes(
-            doc,
-            view,
-            &config
-        );
+        self.sticky_nodes = Self::calculate_sticky_nodes(&self.sticky_nodes, doc, view, &config);
 
         if is_focused {
             let cursor = doc
@@ -219,7 +217,7 @@ impl EditorView {
                 doc,
                 view,
                 surface,
-                context,
+                &self.sticky_nodes,
                 &text_annotations,
                 &mut line_decorations,
                 &mut translated_positions,
@@ -715,7 +713,70 @@ impl EditorView {
         );
     }
 
-    pub fn calculate_sticky_nodes(
+    /// Render the sticky context
+    pub fn render_sticky_context(
+        doc: &Document,
+        view: &View,
+        surface: &mut Surface,
+        context: &Option<Vec<StickyNode>>,
+        doc_annotations: &TextAnnotations,
+        line_decoration: &mut [Box<dyn LineDecoration + '_>],
+        translated_positions: &mut [TranslatedPosition],
+        theme: &Theme,
+    ) {
+        if context.is_none() {
+            return;
+        }
+
+        let context = context.as_ref().expect("context has value");
+
+        let text = doc.text().slice(..);
+        let viewport = view.inner_area(doc);
+
+        // TODO: this probably needs it's own style, although it seems to work well even with cursorline
+        let context_style = theme.get("ui.cursorline.primary");
+
+        let mut context_area = viewport;
+        context_area.height = 1;
+
+        for node in context {
+            let line_num_anchor = text.line_to_char(node.line_nr);
+
+            surface.clear_with(context_area, context_style);
+
+            // get all highlights from the latest points
+            let highlights = Self::doc_syntax_highlights(doc, line_num_anchor, 1, theme);
+
+            let mut renderer = TextRenderer::new(
+                surface,
+                doc,
+                theme,
+                view.offset.horizontal_offset,
+                context_area,
+            );
+
+            let mut new_offset = view.offset;
+            new_offset.anchor = line_num_anchor;
+
+            render_text(
+                &mut renderer,
+                text,
+                new_offset,
+                &doc.text_format(context_area.width, Some(theme)),
+                doc_annotations,
+                highlights,
+                theme,
+                line_decoration,
+                translated_positions,
+            );
+
+            context_area.y += 1;
+        }
+    }
+
+    /// Calculates the sticky nodes
+    fn calculate_sticky_nodes(
+        nodes: &Option<Vec<StickyNode>>,
         doc: &Document,
         view: &View,
         config: &helix_view::editor::Config,
@@ -734,12 +795,15 @@ impl EditorView {
         // this might lead to solving the issue with the cursor as well as the logic is split
         // maybe it's also a good idea to summarize nodes that should be together
 
-
         let syntax = doc.syntax()?;
         let tree = syntax.tree();
         let text = doc.text().slice(..);
         let viewport = view.inner_area(doc);
-        let top_first_byte = text.char_to_byte(view.offset.anchor);
+
+        // Use the cached nodes to determine the current topmost viewport
+        let anchor_line = text.char_to_line(view.offset.anchor);
+        let top_first_byte =
+            text.line_to_byte(anchor_line + nodes.as_ref().unwrap_or(&Vec::new()).len());
 
         let context_nodes = doc
             .language_config()
@@ -789,72 +853,14 @@ impl EditorView {
         // we render from top most (last in the list)
         context.reverse();
 
-        // allow a maximum of half the viewport height
-        // to be occupied by the sticky context
-        context = context.into_iter().take(viewport.height as usize / 2).collect();
+        // allow a maximum of a quarter the viewport height
+        // to be occupied by sticky nodes
+        context = context
+            .into_iter()
+            .take(viewport.height as usize / 4)
+            .collect();
 
         Some(context)
-    }
-
-    /// Render the sticky context
-    pub fn render_sticky_context(
-        doc: &Document,
-        view: &View,
-        surface: &mut Surface,
-        context: Option<Vec<StickyNode>>,
-        doc_annotations: &TextAnnotations,
-        line_decoration: &mut [Box<dyn LineDecoration + '_>],
-        translated_positions: &mut [TranslatedPosition],
-        theme: &Theme,
-    ) {
-        if context.is_none() {
-            return;
-        }
-
-        let context = context.expect("context has value");
-        
-        let text = doc.text().slice(..);
-        let viewport = view.inner_area(doc);
-
-        // TODO: this probably needs it's own style, although it seems to work well even with cursorline
-        let context_style = theme.get("ui.cursorline.primary");
-
-        let mut context_area = viewport;
-        context_area.height = 1;
-
-        for node in context {
-            let line_num_anchor = text.line_to_char(node.line_nr);
-
-            surface.clear_with(context_area, context_style);
-
-            // get all highlights from the latest points
-            let highlights = Self::doc_syntax_highlights(doc, line_num_anchor, 1, theme);
-
-            let mut renderer = TextRenderer::new(
-                surface,
-                doc,
-                theme,
-                view.offset.horizontal_offset,
-                context_area,
-            );
-
-            let mut new_offset = view.offset;
-            new_offset.anchor = line_num_anchor;
-
-            render_text(
-                &mut renderer,
-                text,
-                new_offset,
-                &doc.text_format(context_area.width, Some(theme)),
-                doc_annotations,
-                highlights,
-                theme,
-                line_decoration,
-                translated_positions,
-            );
-
-            context_area.y += 1;
-        }
     }
 
     /// Apply the highlighting on the lines where a cursor is active
