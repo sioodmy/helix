@@ -275,8 +275,11 @@ pub struct Config {
     pub color_modes: bool,
     pub soft_wrap: SoftWrap,
 
-    /// Display context of current cursor line if it is outside the view.
+    /// Display context of current top view if it is outside the view.
     pub sticky_context: bool,
+
+    /// Display an indicator whether to indicate if the sticky context is active
+    pub sticky_context_indicator: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -776,6 +779,7 @@ impl Default for Config {
             color_modes: false,
             soft_wrap: SoftWrap::default(),
             sticky_context: false,
+            sticky_context_indicator: false,
         }
     }
 }

@@ -35,11 +35,10 @@ use tui::buffer::Buffer as Surface;
 use super::{document::render_text, statusline};
 use super::{document::LineDecoration, lsp::SignatureHelp};
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug)]
 pub struct StickyNode {
     line_nr: usize,
-    start_byte: usize,
-    end_byte: usize,
+    indicator: Option<String>,
 }
 
 pub struct EditorView {
@@ -735,14 +734,26 @@ impl EditorView {
 
         // TODO: this probably needs it's own style, although it seems to work well even with cursorline
         let context_style = theme.get("ui.cursorline.primary");
+        let indicator_style = context_style.patch(theme.get("ui.linenr"));
 
         let mut context_area = viewport;
         context_area.height = 1;
 
         for node in context {
-            let line_num_anchor = text.line_to_char(node.line_nr);
-
             surface.clear_with(context_area, context_style);
+
+            if node.indicator.is_some() {
+                surface.set_string(
+                    context_area.x,
+                    context_area.y,
+                    node.indicator.as_ref().expect("indicator exists"),
+                    indicator_style,
+                );
+
+                continue;
+            }
+
+            let line_num_anchor = text.line_to_char(node.line_nr);
 
             // get all highlights from the latest points
             let highlights = Self::doc_syntax_highlights(doc, line_num_anchor, 1, theme);
@@ -828,7 +839,7 @@ impl EditorView {
             let line = text.byte_to_line(node.start_byte());
 
             // if parent of previous node is still on the same line, use the parent node
-            if let Some(&prev_line) = context.last() {
+            if let Some(prev_line) = context.last() {
                 if prev_line.line_nr == line {
                     context.pop();
                 }
@@ -837,8 +848,7 @@ impl EditorView {
             if context_nodes.map_or(true, |nodes| nodes.iter().any(|n| n == node.kind())) {
                 context.push(StickyNode {
                     line_nr: line,
-                    start_byte: node.start_byte(),
-                    end_byte: node.end_byte(),
+                    indicator: None,
                 });
             }
 
@@ -859,6 +869,20 @@ impl EditorView {
             .into_iter()
             .take(viewport.height as usize / 4)
             .collect();
+
+        if config.sticky_context_indicator {
+            let mut str = String::new();
+            let message = "┤Sticky Context├";
+            let side_placeholder = viewport.width as usize / 2 - message.len() - 1;
+            str.push_str(&"─".repeat(side_placeholder));
+            str.push_str(message);
+            str.push_str(&"─".repeat(side_placeholder));
+
+            context.push(StickyNode {
+                line_nr: 0,
+                indicator: Some(str),
+            })
+        }
 
         Some(context)
     }
