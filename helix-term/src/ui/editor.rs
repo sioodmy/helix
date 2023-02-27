@@ -22,7 +22,7 @@ use helix_core::{
 };
 use helix_view::{
     document::{Mode, SCRATCH_BUFFER_NAME},
-    editor::{CompleteAction, CursorShapeConfig, LineNumber},
+    editor::{CompleteAction, CursorShapeConfig},
     graphics::{Color, CursorKind, Modifier, Rect, Style},
     input::{KeyEvent, MouseButton, MouseEvent, MouseEventKind},
     keyboard::{KeyCode, KeyModifiers},
@@ -42,6 +42,13 @@ pub struct EditorView {
     last_insert: (commands::MappableCommand, Vec<InsertEvent>),
     pub(crate) completion: Option<Completion>,
     spinners: ProgressSpinners,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+pub struct StickyNode {
+    line_nr: usize,
+    start_byte: usize,
+    end_byte: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -175,6 +182,12 @@ impl EditorView {
             Box::new(highlights)
         };
 
+        let context = Self::calculate_sticky_nodes(
+            doc,
+            view,
+            &config
+        );
+
         if is_focused {
             let cursor = doc
                 .selection(view.id)
@@ -202,17 +215,16 @@ impl EditorView {
         );
 
         if config.sticky_context {
-            let _line_nr = Self::render_sticky_context(
-                editor,
+            Self::render_sticky_context(
                 doc,
                 view,
                 surface,
+                context,
                 &text_annotations,
                 &mut line_decorations,
                 &mut translated_positions,
                 theme,
-            )
-            .unwrap_or_default();
+            );
         }
 
         Self::render_rulers(editor, doc, view, inner, surface, theme);
@@ -703,22 +715,31 @@ impl EditorView {
         );
     }
 
-    /// Render the sticky context
-    pub fn render_sticky_context(
-        editor: &Editor,
+    pub fn calculate_sticky_nodes(
         doc: &Document,
         view: &View,
-        surface: &mut Surface,
-        doc_annotations: &TextAnnotations,
-        line_decoration: &mut [Box<dyn LineDecoration + '_>],
-        translated_positions: &mut [TranslatedPosition],
-        theme: &Theme,
-    ) -> Option<Vec<usize>> {
+        config: &helix_view::editor::Config,
+    ) -> Option<Vec<StickyNode>> {
+        if !config.sticky_context {
+            return None;
+        }
+        //TODO: split up to own logic, before it is actually rendered
+        // Having a pipeline there would vastly improve usability + reusability
+        // basically do the following pipeline:
+        // calculate contexts, that are required
+        //     -> pass line numbers to gutter renderer
+        //         -> pass to initial render document state, which doesn't render
+        //            the reserved space
+        //             -> and now finally render the contextes
+        // this might lead to solving the issue with the cursor as well as the logic is split
+        // maybe it's also a good idea to summarize nodes that should be together
+
+
         let syntax = doc.syntax()?;
         let tree = syntax.tree();
         let text = doc.text().slice(..);
         let viewport = view.inner_area(doc);
-        let top_byte = text.char_to_byte(view.offset.anchor);
+        let top_first_byte = text.char_to_byte(view.offset.anchor);
 
         let context_nodes = doc
             .language_config()
@@ -726,11 +747,11 @@ impl EditorView {
 
         let mut parent = tree
             .root_node()
-            .descendant_for_byte_range(top_byte, top_byte)
+            .descendant_for_byte_range(top_first_byte, top_first_byte)
             .and_then(|n| n.parent());
 
         // context is list of numbers of lines that should be rendered in the LSP context
-        let mut context: Vec<usize> = Vec::new();
+        let mut context: Vec<StickyNode> = Vec::new();
 
         while let Some(node) = parent {
             // if the node is smaller than half the viewport height, skip
@@ -743,18 +764,26 @@ impl EditorView {
             let line = text.byte_to_line(node.start_byte());
 
             // if parent of previous node is still on the same line, use the parent node
-            // or if the parent of previous node overlaps with the current node
             if let Some(&prev_line) = context.last() {
-                if prev_line == line {
+                if prev_line.line_nr == line {
                     context.pop();
                 }
             }
 
             if context_nodes.map_or(true, |nodes| nodes.iter().any(|n| n == node.kind())) {
-                context.push(line);
+                context.push(StickyNode {
+                    line_nr: line,
+                    start_byte: node.start_byte(),
+                    end_byte: node.end_byte(),
+                });
             }
 
             parent = node.parent();
+        }
+
+        // context should be filled by now
+        if context.is_empty() {
+            return None;
         }
 
         // we render from top most (last in the list)
@@ -762,12 +791,30 @@ impl EditorView {
 
         // allow a maximum of half the viewport height
         // to be occupied by the sticky context
-        if context.len() > viewport.height as usize / 2 {
-            context = context
-                .into_iter()
-                .take(viewport.height as usize / 2)
-                .collect();
+        context = context.into_iter().take(viewport.height as usize / 2).collect();
+
+        Some(context)
+    }
+
+    /// Render the sticky context
+    pub fn render_sticky_context(
+        doc: &Document,
+        view: &View,
+        surface: &mut Surface,
+        context: Option<Vec<StickyNode>>,
+        doc_annotations: &TextAnnotations,
+        line_decoration: &mut [Box<dyn LineDecoration + '_>],
+        translated_positions: &mut [TranslatedPosition],
+        theme: &Theme,
+    ) {
+        if context.is_none() {
+            return;
         }
+
+        let context = context.expect("context has value");
+        
+        let text = doc.text().slice(..);
+        let viewport = view.inner_area(doc);
 
         // TODO: this probably needs it's own style, although it seems to work well even with cursorline
         let context_style = theme.get("ui.cursorline.primary");
@@ -775,13 +822,12 @@ impl EditorView {
         let mut context_area = viewport;
         context_area.height = 1;
 
-        let mut line_numbers = Vec::new();
-
-        for line_num in &context {
-            let line_num_anchor = text.line_to_char(*line_num);
+        for node in context {
+            let line_num_anchor = text.line_to_char(node.line_nr);
 
             surface.clear_with(context_area, context_style);
 
+            // get all highlights from the latest points
             let highlights = Self::doc_syntax_highlights(doc, line_num_anchor, 1, theme);
 
             let mut renderer = TextRenderer::new(
@@ -808,23 +854,7 @@ impl EditorView {
             );
 
             context_area.y += 1;
-            let line_number = match editor.config().line_number {
-                LineNumber::Absolute => *line_num,
-                LineNumber::Relative => {
-                    if editor.mode() == Mode::Insert {
-                        *line_num
-                    } else {
-                        let res = top_byte - *line_num;
-                        match res {
-                            n if n < 2 => 1,
-                            _ => res - 1,
-                        }
-                    }
-                }
-            };
-            line_numbers.push(line_number);
         }
-        Some(line_numbers)
     }
 
     /// Apply the highlighting on the lines where a cursor is active
