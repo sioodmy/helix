@@ -37,6 +37,7 @@ use super::{document::LineDecoration, lsp::SignatureHelp};
 
 #[derive(Debug)]
 pub struct StickyNode {
+    visual_line: u16,
     line_nr: usize,
     indicator: Option<String>,
 }
@@ -795,21 +796,19 @@ impl EditorView {
         if !config.sticky_context {
             return None;
         }
-        //TODO: split up to own logic, before it is actually rendered
-        // Having a pipeline there would vastly improve usability + reusability
-        // basically do the following pipeline:
-        // calculate contexts, that are required
-        //     -> pass line numbers to gutter renderer
-        //         -> pass to initial render document state, which doesn't render
-        //            the reserved space
-        //             -> and now finally render the contextes
-        // this might lead to solving the issue with the cursor as well as the logic is split
-        // maybe it's also a good idea to summarize nodes that should be together
-
         let syntax = doc.syntax()?;
         let tree = syntax.tree();
         let text = doc.text().slice(..);
         let viewport = view.inner_area(doc);
+
+        let visual_cursor_pos = view
+            .screen_coords_at_pos(doc, text, doc.selection(view.id).primary().cursor(text))
+            .unwrap_or_default()
+            .row as u16;
+
+        if visual_cursor_pos == 0 {
+            return None;
+        }
 
         // Use the cached nodes to determine the current topmost viewport
         let anchor_line = text.char_to_line(view.offset.anchor);
@@ -827,7 +826,6 @@ impl EditorView {
 
         // context is list of numbers of lines that should be rendered in the LSP context
         let mut context: Vec<StickyNode> = Vec::new();
-
         while let Some(node) = parent {
             // if the node is smaller than half the viewport height, skip
             if (node.end_position().row - node.start_position().row) < viewport.height as usize / 2
@@ -836,7 +834,7 @@ impl EditorView {
                 continue;
             }
 
-            let line = text.byte_to_line(node.start_byte());
+            let line = text.char_to_line(node.start_byte());
 
             // if parent of previous node is still on the same line, use the parent node
             if let Some(prev_line) = context.last() {
@@ -847,6 +845,7 @@ impl EditorView {
 
             if context_nodes.map_or(true, |nodes| nodes.iter().any(|n| n == node.kind())) {
                 context.push(StickyNode {
+                    visual_line: 0, // with sorting it will be done
                     line_nr: line,
                     indicator: None,
                 });
@@ -861,13 +860,17 @@ impl EditorView {
         }
 
         // we render from top most (last in the list)
-        context.reverse();
-
-        // allow a maximum of a quarter the viewport height
-        // to be occupied by sticky nodes
         context = context
             .into_iter()
-            .take(viewport.height as usize / 4)
+            .rev()
+            .take(viewport.height as usize / 3)
+            .enumerate()
+            .take_while(|(i, _)| *i + 1 != visual_cursor_pos as usize)
+            .map(|(index, node)| {
+                let mut new_node = node;
+                new_node.visual_line = index as u16;
+                new_node
+            })
             .collect();
 
         if config.sticky_context_indicator {
@@ -879,6 +882,7 @@ impl EditorView {
             str.push_str(&"─".repeat(side_placeholder));
 
             context.push(StickyNode {
+                visual_line: context.len() as u16,
                 line_nr: 0,
                 indicator: Some(str),
             })
