@@ -57,6 +57,8 @@ on unix operating systems.
 | `rulers` | List of column positions at which to display the rulers. Can be overridden by language specific `rulers` in `languages.toml` file. | `[]` |
 | `bufferline` | Renders a line at the top of the editor displaying open buffers. Can be `always`, `never` or `multiple` (only shown if more than one buffer is in use) | `never` |
 | `color-modes` | Whether to color the mode indicator with different colors depending on the mode itself | `false` |
+| `sticky-context` | Display context of current line if outside the view | `false` |
+| `sticky-context-indicator` | Display an additional node to indicate what part of the view is the sticky context | `false` |
 
 ### `[editor.statusline]` Section
 
