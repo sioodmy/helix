@@ -198,7 +198,15 @@ impl EditorView {
             translated_positions.push((cursor, Box::new(update_cursor_cache)));
         }
 
-        Self::render_gutter(editor, doc, view, theme, is_focused, &mut line_decorations);
+        Self::render_gutter(
+            editor,
+            doc,
+            &self.sticky_nodes,
+            view,
+            theme,
+            is_focused,
+            &mut line_decorations,
+        );
 
         render_document(
             surface,
@@ -595,6 +603,7 @@ impl EditorView {
     pub fn render_gutter<'d>(
         editor: &'d Editor,
         doc: &'d Document,
+        context: &'d Option<Vec<StickyNode>>,
         view: &View,
         theme: &Theme,
         is_focused: bool,
@@ -634,9 +643,20 @@ impl EditorView {
                     (true, false) => gutter_selected_style_virtual,
                 };
 
-                if let Some(style) =
-                    gutter(pos.doc_line, selected, pos.first_visual_line, &mut text)
+                let mut doc_line = Some(pos.doc_line);
+
+                if let Some(current_context) = context
+                    .as_ref()
+                    .and_then(|c| c.iter().find(|n| n.visual_line == pos.visual_line))
                 {
+                    doc_line = if current_context.indicator.is_some() {
+                        None
+                    } else {
+                        Some(current_context.line_nr)
+                    };
+                }
+
+                if let Some(style) = gutter(doc_line, selected, pos.first_visual_line, &mut text) {
                     renderer
                         .surface
                         .set_stringn(x, y, &text, width, gutter_style.patch(style));
@@ -863,12 +883,12 @@ impl EditorView {
         context = context
             .into_iter()
             .rev()
-            .take(viewport.height as usize / 3)
+            .take(viewport.height as usize / 3) // only take the nodes until 1 / 3 of the viewport is reached
             .enumerate()
-            .take_while(|(i, _)| *i + 1 != visual_cursor_pos as usize)
-            .map(|(index, node)| {
+            .take_while(|(i, _)| *i + 1 != visual_cursor_pos as usize) // also only nodes that don't overlap with the visual cursor position
+            .map(|(i, node)| {
                 let mut new_node = node;
-                new_node.visual_line = index as u16;
+                new_node.visual_line = i as u16;
                 new_node
             })
             .collect();
