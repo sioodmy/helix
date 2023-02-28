@@ -60,10 +60,10 @@ pub fn diagnostic<'doc>(
 
     Box::new(
         move |line: Option<usize>, _selected: bool, first_visual_line: bool, out: &mut String| {
-            if !first_visual_line || line.is_none() {
+            if !first_visual_line {
                 return None;
             }
-            let line = line.expect("line exists");
+            let line = line?;
             use helix_core::diagnostic::Severity;
             if let Ok(index) = diagnostics.binary_search_by_key(&line, |d| d.line) {
                 let after = diagnostics[index..].iter().take_while(|d| d.line == line);
@@ -115,10 +115,7 @@ pub fn diff<'doc>(
                 // we need to special case removals here
                 // these technically do not have a range of lines to highlight (`hunk.after.start == hunk.after.end`).
                 // However we still want to display these hunks correctly we must not yet skip to the next hunk here
-                if line.is_none() {
-                    return None;
-                }
-                let line = line.expect("line exists");
+                let line = line?;
 
                 while hunk.after.end < line as u32
                     || !hunk.is_pure_removal() && line as u32 == hunk.after.end
@@ -179,11 +176,7 @@ pub fn line_numbers<'doc>(
 
     Box::new(
         move |line: Option<usize>, selected: bool, first_visual_line: bool, out: &mut String| {
-            if line.is_none() {
-                return None;
-            }
-
-            let line = line.expect("line exists");
+            let line = line?;
             if line == last_line_in_view && !draw_last {
                 write!(out, "{:>1$}", '~', width).unwrap();
                 Some(linenr)
@@ -275,10 +268,10 @@ pub fn breakpoints<'doc>(
 
     Box::new(
         move |line: Option<usize>, _selected: bool, first_visual_line: bool, out: &mut String| {
-            if !first_visual_line || line.is_none() {
+            if !first_visual_line {
                 return None;
             }
-            let line = line.expect("line exists");
+            let line = line?;
             let breakpoint = breakpoints
                 .iter()
                 .find(|breakpoint| breakpoint.line == line)?;
