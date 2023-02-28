@@ -896,9 +896,16 @@ impl EditorView {
         if config.sticky_context_indicator {
             let mut str = String::new();
             let message = "┤Sticky Context├";
-            let side_placeholder = viewport.width as usize / 2 - message.len() - 1;
+            let side_placeholder = (viewport.width as usize)
+                .saturating_div(2)
+                .saturating_sub(message.len() - 1);
+
             str.push_str(&"─".repeat(side_placeholder));
-            str.push_str(message);
+
+            if side_placeholder > 1 {
+                str.push_str(message);
+            }
+
             str.push_str(&"─".repeat(side_placeholder));
 
             context.push(StickyNode {
