@@ -35,11 +35,12 @@ use tui::buffer::Buffer as Surface;
 use super::{document::render_text, statusline};
 use super::{document::LineDecoration, lsp::SignatureHelp};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StickyNode {
     visual_line: u16,
     line_nr: usize,
     indicator: Option<String>,
+    top_first_byte: usize,
 }
 
 pub struct EditorView {
@@ -748,7 +749,7 @@ impl EditorView {
             return;
         }
 
-        let context = context.as_ref().expect("context has value");
+        let context = context.as_deref().expect("context has value");
 
         let text = doc.text().slice(..);
         let viewport = view.inner_area(doc);
@@ -763,14 +764,8 @@ impl EditorView {
         for node in context {
             surface.clear_with(context_area, context_style);
 
-            if node.indicator.is_some() {
-                surface.set_string(
-                    context_area.x,
-                    context_area.y,
-                    node.indicator.as_ref().expect("indicator exists"),
-                    indicator_style,
-                );
-
+            if let Some(indicator) = node.indicator.as_deref() {
+                surface.set_string(context_area.x, context_area.y, indicator, indicator_style);
                 continue;
             }
 
@@ -786,7 +781,6 @@ impl EditorView {
                 view.offset.horizontal_offset,
                 context_area,
             );
-
             let mut new_offset = view.offset;
             new_offset.anchor = line_num_anchor;
 
@@ -820,20 +814,30 @@ impl EditorView {
         let tree = syntax.tree();
         let text = doc.text().slice(..);
         let viewport = view.inner_area(doc);
+        let cursor_line = doc.selection(view.id).primary().cursor(text);
+
+        // Use the cached nodes to determine the current topmost viewport
+        let anchor_line = text.char_to_line(view.offset.anchor);
+        let top_first_byte =
+            text.line_to_byte(anchor_line + nodes.as_deref().map_or(0, |v| v.len()));
+
+        if let Some(nodes) = nodes {
+            if nodes
+                .iter()
+                .any(|node| node.top_first_byte == top_first_byte)
+            {
+                return Some(nodes.to_vec());
+            }
+        }
 
         let visual_cursor_pos = view
-            .screen_coords_at_pos(doc, text, doc.selection(view.id).primary().cursor(text))
+            .screen_coords_at_pos(doc, text, cursor_line)
             .unwrap_or_default()
             .row as u16;
 
         if visual_cursor_pos == 0 {
             return None;
         }
-
-        // Use the cached nodes to determine the current topmost viewport
-        let anchor_line = text.char_to_line(view.offset.anchor);
-        let top_first_byte =
-            text.line_to_byte(anchor_line + nodes.as_ref().unwrap_or(&Vec::new()).len());
 
         let context_nodes = doc
             .language_config()
@@ -846,6 +850,7 @@ impl EditorView {
 
         // context is list of numbers of lines that should be rendered in the LSP context
         let mut context: Vec<StickyNode> = Vec::new();
+
         while let Some(node) = parent {
             // if the node is smaller than half the viewport height, skip
             if (node.end_position().row - node.start_position().row) < viewport.height as usize / 2
@@ -868,6 +873,7 @@ impl EditorView {
                     visual_line: 0, // with sorting it will be done
                     line_nr: line,
                     indicator: None,
+                    top_first_byte,
                 });
             }
 
@@ -912,6 +918,7 @@ impl EditorView {
                 visual_line: context.len() as u16,
                 line_nr: 0,
                 indicator: Some(str),
+                top_first_byte,
             })
         }
 
