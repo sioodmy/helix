@@ -185,7 +185,10 @@ impl EditorView {
             Box::new(highlights)
         };
 
-        self.sticky_nodes = Self::calculate_sticky_nodes(&self.sticky_nodes, doc, view, &config);
+        if config.sticky_context.enable {
+            self.sticky_nodes =
+                Self::calculate_sticky_nodes(&self.sticky_nodes, doc, view, &config);
+        }
 
         if is_focused {
             let cursor = doc
@@ -221,7 +224,7 @@ impl EditorView {
             &mut translated_positions,
         );
 
-        if config.sticky_context {
+        if config.sticky_context.enable {
             Self::render_sticky_context(
                 doc,
                 view,
@@ -735,6 +738,7 @@ impl EditorView {
     }
 
     /// Render the sticky context
+    #[allow(clippy::too_many_arguments)]
     pub fn render_sticky_context(
         doc: &Document,
         view: &View,
@@ -765,13 +769,14 @@ impl EditorView {
             surface.clear_with(context_area, context_style);
 
             if let Some(indicator) = node.indicator.as_deref() {
+                // set the indicator
                 surface.set_string(context_area.x, context_area.y, indicator, indicator_style);
                 continue;
             }
 
             let line_num_anchor = text.line_to_char(node.line_nr);
 
-            // get all highlights from the latest points
+            // get all highlights from the latest point
             let highlights = Self::doc_syntax_highlights(doc, line_num_anchor, 1, theme);
 
             let mut renderer = TextRenderer::new(
@@ -807,9 +812,6 @@ impl EditorView {
         view: &View,
         config: &helix_view::editor::Config,
     ) -> Option<Vec<StickyNode>> {
-        if !config.sticky_context {
-            return None;
-        }
         let syntax = doc.syntax()?;
         let tree = syntax.tree();
         let text = doc.text().slice(..);
@@ -821,15 +823,6 @@ impl EditorView {
         let top_first_byte =
             text.line_to_byte(anchor_line + nodes.as_deref().map_or(0, |v| v.len()));
 
-        if let Some(nodes) = nodes {
-            if nodes
-                .iter()
-                .any(|node| node.top_first_byte == top_first_byte)
-            {
-                return Some(nodes.to_vec());
-            }
-        }
-
         let visual_cursor_pos = view
             .screen_coords_at_pos(doc, text, cursor_line)
             .unwrap_or_default()
@@ -837,6 +830,14 @@ impl EditorView {
 
         if visual_cursor_pos == 0 {
             return None;
+        }
+
+        if let Some(nodes) = nodes {
+            if nodes.iter().any(|node| {
+                node.top_first_byte == top_first_byte && (visual_cursor_pos as usize) >= nodes.len()
+            }) {
+                return Some(nodes.to_vec());
+            }
         }
 
         let context_nodes = doc
@@ -885,11 +886,19 @@ impl EditorView {
             return None;
         }
 
+        let max_lines = config.sticky_context.max_lines;
+        let max_nodes_amount = if max_lines == 0 {
+            viewport.height as usize / 3
+        } else {
+            max_lines.min(viewport.height) as usize
+        };
+
         // we render from top most (last in the list)
         context = context
             .into_iter()
             .rev()
-            .take(viewport.height as usize / 3) // only take the nodes until 1 / 3 of the viewport is reached
+            // only take the nodes until 1 / 3 of the viewport is reached or the maximum amount of sticky nodes             .take(viewport.height as usize / 3)
+            .take(max_nodes_amount)
             .enumerate()
             .take_while(|(i, _)| *i + 1 != visual_cursor_pos as usize) // also only nodes that don't overlap with the visual cursor position
             .map(|(i, node)| {
@@ -899,7 +908,7 @@ impl EditorView {
             })
             .collect();
 
-        if config.sticky_context_indicator {
+        if config.sticky_context.indicator {
             let mut str = String::new();
             let message = "┤Sticky Context├";
             let side_placeholder = (viewport.width as usize)
