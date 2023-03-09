@@ -853,13 +853,6 @@ impl EditorView {
         let mut context: Vec<StickyNode> = Vec::new();
 
         while let Some(node) = parent {
-            // if the node is smaller than half the viewport height, skip
-            if (node.end_position().row - node.start_position().row) < viewport.height as usize / 2
-            {
-                parent = node.parent();
-                continue;
-            }
-
             let line = text.char_to_line(node.start_byte());
 
             // if parent of previous node is still on the same line, use the parent node
