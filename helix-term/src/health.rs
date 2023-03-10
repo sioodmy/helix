@@ -12,6 +12,7 @@ pub enum TsFeature {
     Highlight,
     TextObject,
     AutoIndent,
+    Context,
 }
 
 impl TsFeature {
@@ -24,6 +25,7 @@ impl TsFeature {
             Self::Highlight => "highlights.scm",
             Self::TextObject => "textobjects.scm",
             Self::AutoIndent => "indents.scm",
+            Self::Context => "context.scm",
         }
     }
 
@@ -32,6 +34,7 @@ impl TsFeature {
             Self::Highlight => "Syntax Highlighting",
             Self::TextObject => "Treesitter Textobjects",
             Self::AutoIndent => "Auto Indent",
+            Self::Context => "Sticky Context",
         }
     }
 
@@ -40,6 +43,7 @@ impl TsFeature {
             Self::Highlight => "Highlight",
             Self::TextObject => "Textobject",
             Self::AutoIndent => "Indent",
+            Self::Context => "Context",
         }
     }
 }

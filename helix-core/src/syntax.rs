@@ -119,6 +119,10 @@ pub struct LanguageConfiguration {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub debugger: Option<DebugAdapterConfig>,
 
+    /// The Grammar query for Sticky Context
+    #[serde(skip)]
+    pub(crate) context_query: OnceCell<Option<ContextQuery>>,
+
     /// Automatic insertion of pairs to parentheses, brackets,
     /// etc. Defaults to true. Optionally, this can be a list of 2-tuples
     /// to specify a list of characters to pair. This overrides the
@@ -127,9 +131,6 @@ pub struct LanguageConfiguration {
     pub auto_pairs: Option<AutoPairs>,
 
     pub rulers: Option<Vec<u16>>, // if set, override editor's rulers
-
-    /// List of tree-sitter nodes that should be displayed in the sticky context.
-    pub sticky_context_nodes: Option<Vec<String>>,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -337,6 +338,15 @@ pub struct TextObjectQuery {
 }
 
 #[derive(Debug)]
+pub struct ContextQuery {
+    pub query: Query,
+}
+
+impl ContextQuery {
+    // pub fn is_node(&self, node: &Node) -> bool {}
+}
+
+#[derive(Debug)]
 pub enum CapturedNode<'a> {
     Single(Node<'a>),
     /// Guaranteed to be not empty
@@ -524,6 +534,15 @@ impl LanguageConfiguration {
             .get_or_init(|| {
                 self.load_query("textobjects.scm")
                     .map(|query| TextObjectQuery { query })
+            })
+            .as_ref()
+    }
+
+    pub fn context_query(&self) -> Option<&ContextQuery> {
+        self.context_query
+            .get_or_init(|| {
+                self.load_query("context.scm")
+                    .map(|query| ContextQuery { query })
             })
             .as_ref()
     }

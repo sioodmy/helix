@@ -15,8 +15,9 @@ use helix_core::{
         ensure_grapheme_boundary_next_byte, next_grapheme_boundary, prev_grapheme_boundary,
     },
     movement::Direction,
-    syntax::{self, HighlightEvent},
+    syntax::{self, HighlightEvent, RopeProvider},
     text_annotations::TextAnnotations,
+    tree_sitter::QueryCursor,
     unicode::width::UnicodeWidthStr,
     visual_offset_from_block, Position, Range, Selection, Transaction,
 };
@@ -456,7 +457,6 @@ impl EditorView {
         let base_primary_cursor_scope = theme
             .find_scope_index("ui.cursor.primary")
             .unwrap_or(base_cursor_scope);
-
         let cursor_scope = match mode {
             Mode::Insert => theme.find_scope_index_exact("ui.cursor.insert"),
             Mode::Select => theme.find_scope_index_exact("ui.cursor.select"),
@@ -843,7 +843,7 @@ impl EditorView {
 
         let context_nodes = doc
             .language_config()
-            .and_then(|lc| lc.sticky_context_nodes.as_ref());
+            .and_then(|lang| lang.context_query())?;
 
         let mut parent = tree
             .root_node()
@@ -855,7 +855,6 @@ impl EditorView {
 
         while let Some(node) = parent {
             let line = text.char_to_line(node.start_byte());
-
             // if parent of previous node is still on the same line, use the parent node
             if let Some(prev_line) = context.last() {
                 if prev_line.line_nr == line {
@@ -863,7 +862,23 @@ impl EditorView {
                 }
             }
 
-            if context_nodes.map_or(true, |nodes| nodes.iter().any(|n| n == node.kind())) {
+            let mut cursor = QueryCursor::new();
+            let query = &context_nodes.query;
+            let query_nodes = cursor.matches(query, node, RopeProvider(text));
+
+            let query_ranges = query_nodes
+                .flat_map(|qnode| {
+                    qnode
+                        .captures
+                        .iter()
+                        .map(|capture| capture.node.start_byte()..capture.node.end_byte())
+                })
+                .collect::<Vec<std::ops::Range<usize>>>();
+
+            if query_ranges
+                .iter()
+                .any(|query_range| query_range.contains(&node.start_byte()))
+            {
                 context.push(StickyNode {
                     visual_line: 0, // with sorting it will be done
                     line_nr: line,
@@ -903,19 +918,23 @@ impl EditorView {
             .collect();
 
         if config.sticky_context.indicator {
-            let mut str = String::new();
             let message = "┤Sticky Context├";
             let side_placeholder = (viewport.width as usize)
                 .saturating_div(2)
                 .saturating_sub(message.len() - 1);
 
-            str.push_str(&"─".repeat(side_placeholder));
+            let added_length = if side_placeholder > 1 {
+                message.len()
+            } else {
+                0
+            };
+            let mut str = String::with_capacity("─".len() * side_placeholder * 2 + added_length);
 
+            str.extend(std::iter::repeat("─").take(side_placeholder));
             if side_placeholder > 1 {
                 str.push_str(message);
             }
-
-            str.push_str(&"─".repeat(side_placeholder));
+            str.extend(std::iter::repeat("─").take(side_placeholder));
 
             context.push(StickyNode {
                 visual_line: context.len() as u16,
