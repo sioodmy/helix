@@ -771,7 +771,13 @@ impl EditorView {
 
             if let Some(indicator) = node.indicator.as_deref() {
                 // set the indicator
-                surface.set_string(context_area.x, context_area.y, indicator, indicator_style);
+                surface.set_stringn(
+                    context_area.x,
+                    context_area.y,
+                    indicator,
+                    indicator.len(),
+                    indicator_style,
+                );
                 continue;
             }
 
@@ -871,7 +877,7 @@ impl EditorView {
                     qnode
                         .captures
                         .iter()
-                        .map(|capture| capture.node.start_byte()..capture.node.end_byte())
+                        .map(|capture| capture.node.byte_range())
                 })
                 .collect::<Vec<std::ops::Range<usize>>>();
 
