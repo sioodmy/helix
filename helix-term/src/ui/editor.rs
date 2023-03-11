@@ -760,7 +760,7 @@ impl EditorView {
         let viewport = view.inner_area(doc);
 
         // TODO: this probably needs it's own style, although it seems to work well even with cursorline
-        let context_style = theme.get("ui.cursorline.primary");
+        let context_style = theme.get("ui.virtual.sticky-context");
         let indicator_style = context_style.patch(theme.get("ui.linenr"));
 
         let mut context_area = viewport;
