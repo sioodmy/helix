@@ -945,7 +945,7 @@ impl EditorView {
             let message = "┤Sticky Context├";
             let side_placeholder = (viewport.width as usize)
                 .saturating_div(2)
-                .saturating_sub(message.len() - 1);
+                .saturating_sub(message.len());
 
             let added_length = if side_placeholder > 1 {
                 message.len()
