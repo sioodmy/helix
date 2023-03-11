@@ -823,7 +823,7 @@ impl EditorView {
         let tree = syntax.tree();
         let text = doc.text().slice(..);
         let viewport = view.inner_area(doc);
-        let cursor_line = doc.selection(view.id).primary().cursor(text);
+        let cursor_byte = doc.selection(view.id).primary().cursor(text);
 
         // Use the cached nodes to determine the current topmost viewport
         let anchor_line = text.char_to_line(view.offset.anchor);
@@ -831,7 +831,7 @@ impl EditorView {
             text.line_to_byte(anchor_line + nodes.as_deref().map_or(0, |v| v.len()));
 
         let visual_cursor_pos = view
-            .screen_coords_at_pos(doc, text, cursor_line)
+            .screen_coords_at_pos(doc, text, cursor_byte)
             .unwrap_or_default()
             .row as u16;
 
@@ -851,6 +851,17 @@ impl EditorView {
             .language_config()
             .and_then(|lang| lang.context_query())?;
 
+        let mut cursor_parent = tree
+            .root_node()
+            .descendant_for_byte_range(cursor_byte, cursor_byte)
+            .and_then(|n| n.parent());
+
+        let mut cursor_nodes = Vec::new();
+        while let Some(node) = cursor_parent {
+            cursor_nodes.push(node);
+            cursor_parent = node.parent();
+        }
+
         let mut parent = tree
             .root_node()
             .descendant_for_byte_range(top_first_byte, top_first_byte)
@@ -860,7 +871,17 @@ impl EditorView {
         let mut context: Vec<StickyNode> = Vec::new();
 
         while let Some(node) = parent {
-            let line = text.char_to_line(node.start_byte());
+            // skip all the nodes that aren't in the scope of the cursor
+            if !cursor_nodes
+                .iter()
+                .any(|cursor_node| cursor_node.start_byte() == node.start_byte())
+            {
+                parent = node.parent();
+                continue;
+            }
+
+            let line = text.byte_to_line(node.start_byte());
+
             // if parent of previous node is still on the same line, use the parent node
             if let Some(prev_line) = context.last() {
                 if prev_line.line_nr == line {
