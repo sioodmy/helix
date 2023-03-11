@@ -893,19 +893,16 @@ impl EditorView {
             let query = &context_nodes.query;
             let query_nodes = cursor.matches(query, node, RopeProvider(text));
 
-            let query_ranges = query_nodes
+            let is_in_range = query_nodes
                 .flat_map(|qnode| {
                     qnode
                         .captures
                         .iter()
                         .map(|capture| capture.node.byte_range())
                 })
-                .collect::<Vec<std::ops::Range<usize>>>();
+                .any(|query_range| query_range.contains(&node.start_byte()));
 
-            if query_ranges
-                .iter()
-                .any(|query_range| query_range.contains(&node.start_byte()))
-            {
+            if is_in_range {
                 context.push(StickyNode {
                     visual_line: 0, // with sorting it will be done
                     line_nr: line,

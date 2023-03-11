@@ -292,7 +292,8 @@ pub struct StickyContextConfig {
 
     /// The max amount of lines to be displayed. (including indicator!)
     /// The viewport is taken into account when changing this value.
-    /// So if the configured amount is more than the viewport height.
+    /// So if the configured amount is more than the viewport height, it will be capped to a max
+    /// of the complete viewport height.
     ///
     /// Default: 0, which means that it is a fixed size based on the viewport
     pub max_lines: u16,
