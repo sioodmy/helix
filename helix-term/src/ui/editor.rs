@@ -42,6 +42,7 @@ pub struct StickyNode {
     byte_range: std::ops::Range<usize>,
     indicator: Option<String>,
     top_first_byte: usize,
+    cursor_byte: usize,
     has_context_end: bool,
 }
 
@@ -762,8 +763,8 @@ impl EditorView {
             let viewport = view.inner_area(doc);
 
             // define sticky context styles
-            let context_style = theme.get("ui.virtual.sticky.context");
-            let indicator_style = theme.get("ui.virtual.sticky.indicator");
+            let context_style = theme.get("ui.sticky.context");
+            let indicator_style = theme.get("ui.sticky.indicator");
 
             let mut context_area = viewport;
             context_area.height = 1;
@@ -893,23 +894,25 @@ impl EditorView {
     ) -> Option<std::ops::Range<usize>> {
         query_nodes
             .flat_map(move |qnode| {
-                let context_nodes: Vec<_> = qnode.nodes_for_capture_index(start_index).collect();
                 let end_nodes: Vec<_> = qnode.nodes_for_capture_index(end_index).collect();
-                context_nodes.into_iter().flat_map(move |context| {
-                    end_nodes
-                        .clone()
-                        .into_iter()
-                        .filter(move |it| {
-                            let start_range = context.byte_range();
-                            let end = it.start_byte();
-                            start_range.contains(&end)
+                qnode
+                    .nodes_for_capture_index(start_index)
+                    .flat_map(move |context| {
+                        end_nodes
+                            .clone()
+                            .into_iter()
+                            .filter(move |it| {
+                                let start_range = context.byte_range();
+                                let end = it.start_byte();
+                                start_range.contains(&end)
                                 && start_range.contains(&top_first_byte)
                                 && start_range.contains(&cursor_byte)
-                                // only match @context.end nodes
+                                // only match @context.end nodes that aren't at the end of the line
                                 && context.start_position().row != it.start_position().row
-                        })
-                        .map(move |it| context.start_byte()..it.start_byte())
-                })
+                            })
+                            .map(move |it| context.start_byte()..it.start_byte())
+                    })
+                    .collect::<Vec<_>>()
             })
             .next()
     }
@@ -943,7 +946,8 @@ impl EditorView {
 
         if let Some(nodes) = nodes {
             if nodes.iter().any(|node| {
-                node.top_first_byte == top_first_byte && (visual_cursor_pos as usize) >= nodes.len()
+                (node.top_first_byte == top_first_byte && node.cursor_byte == cursor_byte)
+                    && (visual_cursor_pos as usize) >= nodes.len()
             }) {
                 return Some(nodes.to_vec());
             }
@@ -957,7 +961,7 @@ impl EditorView {
         let end_index = context_nodes
             .query
             .capture_index_for_name("context.end")
-            .unwrap_or_else(|| start_index);
+            .unwrap_or(start_index);
 
         let mut cursor_parent = tree
             .root_node()
@@ -1025,6 +1029,7 @@ impl EditorView {
                         byte_range: node_bytes,
                         indicator: None,
                         top_first_byte,
+                        cursor_byte,
                         has_context_end: true,
                     });
                 }
@@ -1038,6 +1043,7 @@ impl EditorView {
                         byte_range: node.start_byte()..node.start_byte(),
                         indicator: None,
                         top_first_byte,
+                        cursor_byte,
                         has_context_end: false,
                     });
                 }
@@ -1080,28 +1086,14 @@ impl EditorView {
             .collect();
 
         if config.sticky_context.indicator {
-            let message = "┤Sticky Context├";
-            let side_placeholder = (viewport.width as usize)
-                .saturating_div(2)
-                .saturating_sub(message.len());
-
-            let added_length = if side_placeholder > 1 {
-                message.len()
-            } else {
-                0
-            };
-            let mut str = String::with_capacity("─".len() * side_placeholder * 2 + added_length);
-            str.extend(std::iter::repeat("─").take(side_placeholder));
-            if side_placeholder > 1 {
-                str.push_str(message);
-            }
-            str.extend(std::iter::repeat("─").take(side_placeholder));
+            let str = "─".repeat(viewport.width as usize);
 
             context.push(StickyNode {
                 visual_line: context.len() as u16,
                 byte_range: 0..0,
                 indicator: Some(str),
                 top_first_byte,
+                cursor_byte,
                 has_context_end: false,
             })
         }
