@@ -813,11 +813,8 @@ impl EditorView {
                     let mut additional_area = line_context_area;
                     additional_area.x += (already_written + dots.len() as u16)
                         .saturating_sub(overdraw_offset as u16);
-                    additional_area.width -= already_written - 1;
 
-                    let return_anchor = node.byte_range.end;
-                    let highlights = Self::doc_syntax_highlights(doc, return_anchor, 1, theme);
-
+                    // render the end of the function definition
                     let mut renderer = TextRenderer::new(
                         surface,
                         doc,
@@ -825,9 +822,8 @@ impl EditorView {
                         view.offset.horizontal_offset,
                         additional_area,
                     );
-
-                    new_offset.anchor = return_anchor;
-
+                    new_offset.anchor = node.byte_range.end;
+                    let highlights = Self::doc_syntax_highlights(doc, new_offset.anchor, 1, theme);
                     render_text(
                         &mut renderer,
                         text,
@@ -840,9 +836,9 @@ impl EditorView {
                         translated_positions,
                     );
 
-                    // draw the " ... " with the keyword.operator style
+                    // draw the "..." with the keyword.operator style
                     surface.set_stringn(
-                        additional_area.x + 1, // handle the whitespace
+                        (already_written + line_context_area.x).saturating_sub(1),
                         additional_area.y,
                         dots,
                         dots.len(),
@@ -905,10 +901,10 @@ impl EditorView {
                                 let start_range = context.byte_range();
                                 let end = it.start_byte();
                                 start_range.contains(&end)
-                                && start_range.contains(&top_first_byte)
-                                && start_range.contains(&cursor_byte)
-                                // only match @context.end nodes that aren't at the end of the line
-                                && context.start_position().row != it.start_position().row
+                                    && start_range.contains(&top_first_byte)
+                                    && start_range.contains(&cursor_byte)
+                                    // only match @context.end nodes that aren't at the end of the line
+                                    && context.start_position().row != it.start_position().row
                             })
                             .map(move |it| context.start_byte()..it.start_byte())
                     })
@@ -1024,6 +1020,11 @@ impl EditorView {
                 );
 
                 if let Some(node_bytes) = node_byte_range {
+                    log::warn!(
+                        "start... {:?} ---- end... {:?}",
+                        text.line(text.byte_to_line(node_bytes.start)),
+                        text.line(text.byte_to_line(node_bytes.end))
+                    );
                     context.push(StickyNode {
                         visual_line: 0, // reordering will take care of the visual line
                         byte_range: node_bytes,
