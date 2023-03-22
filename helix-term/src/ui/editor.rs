@@ -763,16 +763,16 @@ impl EditorView {
             let viewport = view.inner_area(doc);
 
             // define sticky context styles
-            let context_style = theme.try_get("ui.sticky.context").unwrap_or(
+            let context_style = theme.try_get("ui.sticky.context").unwrap_or_else(|| {
                 theme
                     .try_get("ui.statusline")
-                    .expect("`ui.statusline` exists"),
-            );
-            let indicator_style = theme.try_get("ui.sticky.indicator").unwrap_or(
+                    .expect("`ui.statusline` exists")
+            });
+            let indicator_style = theme.try_get("ui.sticky.indicator").unwrap_or_else(|| {
                 theme
                     .try_get("ui.statusline")
-                    .expect("`ui.statusline` exists"),
-            );
+                    .expect("`ui.statusline` exists")
+            });
 
             let mut context_area = viewport;
             context_area.height = 1;
