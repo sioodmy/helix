@@ -2,6 +2,9 @@
   (block) @context.end
 ) @context
 
+(mod_item
+  body: (_)) @context
+
 [
   (if_expression)
   (else_clause)
@@ -15,5 +18,4 @@
   (trait_item)
   (struct_item)
   (enum_item)
-  (mod_item)
 ] @context
