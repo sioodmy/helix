@@ -1,30 +1,19 @@
-; Credits to: nvim-treesitter/nvim-treesitter-context
-(if_expression) @context
-
-(else_clause) @context
-
-(match_expression) @context
-
-(match_arm) @context
-
-(for_expression) @context
-
-(while_expression) @context
-
-(loop_expression) @context
-  
-(closure_expression) @context
-
 (function_item
   (block) @context.end
 ) @context
 
-(impl_item) @context
-
-(trait_item) @context
-
-(struct_item) @context
-
-(enum_item) @context
-
-(mod_item) @context
+[
+  (if_expression)
+  (else_clause)
+  (match_expression)
+  (match_arm)
+  (for_expression)
+  (while_expression)
+  (loop_expression)
+  (closure_expression)
+  (impl_item)
+  (trait_item)
+  (struct_item)
+  (enum_item)
+  (mod_item)
+] @context
