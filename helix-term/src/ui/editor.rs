@@ -802,13 +802,9 @@ impl EditorView {
 
                 let dots = "...";
 
-                // draw the "remaining" part of a signature first, so that it be drawn over
-                let first_line = text.byte_to_line(node.byte_range.start);
-                let last_line = text.byte_to_line(node.byte_range.end);
-
                 // if the definition of the function contains multiple lines
-                // e.g. a parameter list of 6+ parameters, the delta will be bigger than 1
-                if last_line.checked_sub(first_line) > Some(1) && node.has_context_end {
+                if node.has_context_end {
+                    let last_line = text.byte_to_line(node.byte_range.end);
                     let overdraw_offset = text
                         .line(last_line)
                         .chars()
@@ -914,7 +910,10 @@ impl EditorView {
                                     // only match @context.end nodes that aren't at the end of the line
                                     && context.start_position().row != it.start_position().row
                             })
-                            .map(move |it| context.start_byte()..it.start_byte())
+                            // in some cases, the start byte of a block is on the next line
+                            // which causes to show the actual first line of content instead of
+                            // the actual wanted "end of signature" line
+                            .map(move |it| context.start_byte()..it.start_byte().saturating_sub(1))
                     })
                     .collect::<Vec<_>>()
             })
