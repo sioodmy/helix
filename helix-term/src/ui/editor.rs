@@ -915,7 +915,6 @@ impl EditorView {
         end_index: u32,
         top_first_byte: usize,
         cursor_byte: usize,
-        // ) -> Option<std::ops::Range<usize>> {
     ) -> Option<std::ops::Range<usize>> {
         let end_nodes: Vec<_> = query_match.nodes_for_capture_index(end_index).collect();
         query_match
