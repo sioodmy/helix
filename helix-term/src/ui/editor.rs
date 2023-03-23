@@ -667,7 +667,6 @@ impl EditorView {
                 };
 
                 let mut doc_line = Some(pos.doc_line);
-
                 if let Some(current_context) = context
                     .as_ref()
                     .and_then(|c| c.iter().find(|n| n.visual_line == pos.visual_line))
@@ -675,7 +674,7 @@ impl EditorView {
                     doc_line = if current_context.indicator.is_some() {
                         None
                     } else {
-                        Some(text.byte_to_line(current_context.byte_range.start))
+                        Some(current_context.line)
                     };
                 }
 
@@ -1050,7 +1049,10 @@ impl EditorView {
             max_lines.min(viewport.height) as usize
         };
 
-        context = context
+        let mut result: Vec<StickyNode> = context.into_iter().collect();
+        result.sort_by(|lnode, rnode| lnode.line.cmp(&rnode.line));
+
+        result = result
             .into_iter()
             // only take the nodes until 1 / 3 of the viewport is reached or the maximum amount of sticky nodes
             .take(max_nodes_amount)
@@ -1069,9 +1071,9 @@ impl EditorView {
         if config.sticky_context.indicator {
             let str = "─".repeat(viewport.width as usize);
 
-            context.insert(StickyNode {
+            result.push(StickyNode {
                 line: usize::MAX,
-                visual_line: context.len() as u16,
+                visual_line: result.len() as u16,
                 byte_range: 0..0,
                 indicator: Some(str),
                 top_first_byte,
@@ -1079,9 +1081,6 @@ impl EditorView {
                 has_context_end: false,
             });
         }
-
-        let mut result: Vec<StickyNode> = context.into_iter().collect();
-        result.sort_by(|lnode, rnode| lnode.line.cmp(&rnode.line));
 
         Some(result)
     }
