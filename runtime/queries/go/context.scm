@@ -1,3 +1,5 @@
+; Credits to nvim-treesitter/nvim-treesitter-context
+
 (function_declaration
 	result: (_) @context.end
 ) @context

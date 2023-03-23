@@ -15,4 +15,3 @@
 (stab_clause) @context
 
 (call) @context
-  
