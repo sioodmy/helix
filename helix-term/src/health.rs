@@ -17,7 +17,12 @@ pub enum TsFeature {
 
 impl TsFeature {
     pub fn all() -> &'static [Self] {
-        &[Self::Highlight, Self::TextObject, Self::AutoIndent]
+        &[
+            Self::Highlight,
+            Self::TextObject,
+            Self::AutoIndent,
+            Self::Context,
+        ]
     }
 
     pub fn runtime_filename(&self) -> &'static str {
