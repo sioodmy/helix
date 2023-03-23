@@ -342,10 +342,6 @@ pub struct ContextQuery {
     pub query: Query,
 }
 
-impl ContextQuery {
-    // pub fn is_node(&self, node: &Node) -> bool {}
-}
-
 #[derive(Debug)]
 pub enum CapturedNode<'a> {
     Single(Node<'a>),
