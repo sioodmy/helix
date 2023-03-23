@@ -11,6 +11,7 @@ use crate::{
 };
 
 use helix_core::{
+    diagnostic::NumberOrString,
     graphemes::{
         ensure_grapheme_boundary_next_byte, next_grapheme_boundary, prev_grapheme_boundary,
     },
@@ -31,7 +32,7 @@ use helix_view::{
 };
 use std::{collections::HashSet, mem::take, num::NonZeroUsize, path::PathBuf, rc::Rc, sync::Arc};
 
-use tui::buffer::Buffer as Surface;
+use tui::{buffer::Buffer as Surface, text::Span};
 
 use super::{document::render_text, statusline};
 use super::{document::LineDecoration, lsp::SignatureHelp};
@@ -748,6 +749,14 @@ impl EditorView {
                 });
             let text = Text::styled(&diagnostic.message, style);
             lines.extend(text.lines);
+            let code = diagnostic.code.as_ref().map(|x| match x {
+                NumberOrString::Number(n) => format!("({n})"),
+                NumberOrString::String(s) => format!("({s})"),
+            });
+            if let Some(code) = code {
+                let span = Span::styled(code, style);
+                lines.push(span.into());
+            }
         }
 
         let paragraph = Paragraph::new(lines)
@@ -1371,6 +1380,8 @@ impl EditorView {
     }
 
     pub fn handle_idle_timeout(&mut self, cx: &mut commands::Context) -> EventResult {
+        commands::compute_inlay_hints_for_all_views(cx.editor, cx.jobs);
+
         if let Some(completion) = &mut self.completion {
             return if completion.ensure_item_resolved(cx) {
                 EventResult::Consumed(None)
@@ -1395,6 +1406,10 @@ impl EditorView {
         event: &MouseEvent,
         cxt: &mut commands::Context,
     ) -> EventResult {
+        if event.kind != MouseEventKind::Moved {
+            cxt.editor.reset_idle_timer();
+        }
+
         let config = cxt.editor.config();
         let MouseEvent {
             kind,

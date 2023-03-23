@@ -225,6 +225,9 @@ impl<T: Item> FilePicker<T> {
                 let loader = cx.editor.syn_loader.clone();
                 doc.detect_language(loader);
             }
+
+            // QUESTION: do we want to compute inlay hints in pickers too ? Probably not for now
+            // but it could be interesting in the future
         }
 
         EventResult::Consumed(None)
@@ -339,6 +342,7 @@ impl<T: Item + 'static> Component for FilePicker<T> {
                 inner,
                 doc,
                 offset,
+                // TODO: compute text annotations asynchronously here (like inlay hints)
                 &TextAnnotations::default(),
                 highlights,
                 &cx.editor.theme,
@@ -808,7 +812,10 @@ impl<T: Item + 'static> Component for Picker<T> {
                 for cell in row.cells.iter_mut() {
                     let spans = match cell.content.lines.get(0) {
                         Some(s) => s,
-                        None => continue,
+                        None => {
+                            cell_start_byte_offset += TEMP_CELL_SEP.len();
+                            continue;
+                        }
                     };
 
                     let mut cell_len = 0;
