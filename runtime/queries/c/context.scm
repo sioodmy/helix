@@ -7,7 +7,6 @@
 [
   (preproc_if)
   (preproc_ifdef)
-  (function_definition)
   (for_statement)
   (if_statement)
   (while_statement)

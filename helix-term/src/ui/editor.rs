@@ -17,7 +17,7 @@ use helix_core::{
     movement::Direction,
     syntax::{self, HighlightEvent, RopeProvider},
     text_annotations::TextAnnotations,
-    tree_sitter::{QueryCursor, QueryMatches},
+    tree_sitter::{QueryCursor, QueryMatch},
     unicode::width::UnicodeWidthStr,
     visual_offset_from_block, Position, Range, Selection, Transaction,
 };
@@ -29,7 +29,7 @@ use helix_view::{
     keyboard::{KeyCode, KeyModifiers},
     Document, Editor, Theme, View,
 };
-use std::{mem::take, num::NonZeroUsize, path::PathBuf, rc::Rc, sync::Arc};
+use std::{collections::HashSet, mem::take, num::NonZeroUsize, path::PathBuf, rc::Rc, sync::Arc};
 
 use tui::buffer::Buffer as Surface;
 
@@ -38,12 +38,27 @@ use super::{document::LineDecoration, lsp::SignatureHelp};
 
 #[derive(Debug, Clone)]
 pub struct StickyNode {
+    line: usize,
     visual_line: u16,
     byte_range: std::ops::Range<usize>,
     indicator: Option<String>,
     top_first_byte: usize,
     cursor_byte: usize,
     has_context_end: bool,
+}
+
+impl PartialEq for StickyNode {
+    fn eq(&self, other: &Self) -> bool {
+        self.line == other.line
+    }
+}
+
+impl Eq for StickyNode {}
+
+impl std::hash::Hash for StickyNode {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.line.hash(state);
+    }
 }
 
 pub struct EditorView {
@@ -885,37 +900,34 @@ impl EditorView {
         }
     }
 
-    fn get_node_range<'a>(
-        query_nodes: QueryMatches<'a, 'a, RopeProvider<'a>>,
+    fn get_context_paired_range(
+        query_match: &QueryMatch,
         start_index: u32,
         end_index: u32,
         top_first_byte: usize,
         cursor_byte: usize,
+        // ) -> Option<std::ops::Range<usize>> {
     ) -> Option<std::ops::Range<usize>> {
-        query_nodes
-            .flat_map(move |qnode| {
-                let end_nodes: Vec<_> = qnode.nodes_for_capture_index(end_index).collect();
-                qnode
-                    .nodes_for_capture_index(start_index)
-                    .flat_map(move |context| {
-                        end_nodes
-                            .clone()
-                            .into_iter()
-                            .filter(move |it| {
-                                let start_range = context.byte_range();
-                                let end = it.start_byte();
-                                start_range.contains(&end)
-                                    && start_range.contains(&top_first_byte)
-                                    && start_range.contains(&cursor_byte)
-                                    // only match @context.end nodes that aren't at the end of the line
-                                    && context.start_position().row != it.start_position().row
-                            })
-                            // in some cases, the start byte of a block is on the next line
-                            // which causes to show the actual first line of content instead of
-                            // the actual wanted "end of signature" line
-                            .map(move |it| context.start_byte()..it.start_byte().saturating_sub(1))
+        let end_nodes: Vec<_> = query_match.nodes_for_capture_index(end_index).collect();
+        query_match
+            .nodes_for_capture_index(start_index)
+            .flat_map(move |context| {
+                end_nodes
+                    .clone()
+                    .into_iter()
+                    .filter(move |it| {
+                        let start_range = context.byte_range();
+                        let end = it.start_byte();
+                        start_range.contains(&end)
+                            && start_range.contains(&top_first_byte)
+                            && start_range.contains(&cursor_byte)
+                            // only match @context.end nodes that aren't at the end of the line
+                            && context.start_position().row != it.start_position().row
                     })
-                    .collect::<Vec<_>>()
+                    // in some cases, the start byte of a block is on the next line
+                    // which causes to show the actual first line of content instead of
+                    // the actual wanted "end of signature" line
+                    .map(move |it| context.start_byte()..it.start_byte().saturating_sub(1))
             })
             .next()
     }
@@ -947,6 +959,7 @@ impl EditorView {
             return None;
         }
 
+        // nothing has changed, so the cached result can be returned
         if let Some(nodes) = nodes {
             if nodes.iter().any(|node| {
                 (node.top_first_byte == top_first_byte && node.cursor_byte == cursor_byte)
@@ -966,87 +979,45 @@ impl EditorView {
             .capture_index_for_name("context.end")
             .unwrap_or(start_index);
 
-        let mut cursor_parent = tree
-            .root_node()
-            .descendant_for_byte_range(cursor_byte, cursor_byte)
-            .and_then(|n| n.parent());
-
-        let mut cursor_nodes = Vec::new();
-        while let Some(node) = cursor_parent {
-            cursor_nodes.push(node);
-            cursor_parent = node.parent();
-        }
-
-        let mut parent = tree
-            .root_node()
-            .descendant_for_byte_range(top_first_byte, top_first_byte)
-            .and_then(|n| n.parent());
-
         // context is list of numbers of lines that should be rendered in the LSP context
-        let mut context: Vec<StickyNode> = Vec::new();
+        let mut context: HashSet<StickyNode> = HashSet::new();
 
-        while let Some(node) = parent {
-            // skip all the nodes that aren't in the scope of the cursor
-            if !cursor_nodes
-                .iter()
-                .any(|cursor_node| cursor_node.start_byte() == node.start_byte())
-            {
-                parent = node.parent();
-                continue;
-            }
+        let mut cursor = QueryCursor::new();
+        // only run the query from start to the cursor location
+        cursor.set_byte_range(0..cursor_byte);
+        let query = &context_nodes.query;
+        let query_nodes = cursor.matches(query, tree.root_node(), RopeProvider(text));
 
-            // if parent of previous node is still on the same line, use the parent node
-            if let Some(prev_line) = context.last() {
-                if prev_line.byte_range.start == node.start_byte() {
-                    context.pop();
+        for matched_node in query_nodes {
+            // find @context.end nodes
+            let node_byte_range = Self::get_context_paired_range(
+                &matched_node,
+                start_index,
+                end_index,
+                top_first_byte,
+                cursor_byte,
+            );
+            for node in matched_node.nodes_for_capture_index(start_index) {
+                if (!node.byte_range().contains(&cursor_byte)
+                    || !node.byte_range().contains(&top_first_byte))
+                    && node_byte_range.is_none()
+                {
+                    continue;
                 }
-            }
 
-            let mut cursor = QueryCursor::new();
-            // since a node is required, we don't have to run the query for more than actually is required
-            // in the current context
-            cursor.set_byte_range(node.range().start_byte..node.range().end_byte);
-            let query = &context_nodes.query;
-            let mut query_nodes = cursor.matches(query, node, RopeProvider(text));
-
-            let is_in_range = query_nodes.by_ref().any(|qnode| {
-                qnode
-                    .captures
-                    .iter()
-                    .any(move |capture| capture.node.byte_range().contains(&node.start_byte()))
-            });
-
-            if is_in_range {
-                // find @context.end nodes
-                let node_byte_range = Self::get_node_range(
-                    query_nodes,
-                    start_index,
-                    end_index,
-                    top_first_byte,
-                    cursor_byte,
-                );
-
-                if let Some(node_bytes) = node_byte_range {
-                    log::warn!(
-                        "start... {:?} ---- end... {:?}",
-                        text.line(text.byte_to_line(node_bytes.start)),
-                        text.line(text.byte_to_line(node_bytes.end))
-                    );
-                    context.push(StickyNode {
-                        visual_line: 0, // reordering will take care of the visual line
-                        byte_range: node_bytes,
+                if let Some(node_pair) = &node_byte_range {
+                    context.insert(StickyNode {
+                        line: node.start_position().row,
+                        visual_line: 0,
+                        byte_range: node_pair.clone(),
                         indicator: None,
                         top_first_byte,
                         cursor_byte,
                         has_context_end: true,
                     });
-                }
-
-                if context
-                    .iter()
-                    .all(|it| it.byte_range.start != node.start_byte())
-                {
-                    context.push(StickyNode {
+                } else {
+                    context.insert(StickyNode {
+                        line: node.start_position().row,
                         visual_line: 0,
                         byte_range: node.start_byte()..node.start_byte(),
                         indicator: None,
@@ -1056,9 +1027,7 @@ impl EditorView {
                     });
                 }
             }
-            parent = node.parent();
         }
-
         // context should be filled by now
         if context.is_empty() {
             return None;
@@ -1073,10 +1042,6 @@ impl EditorView {
             max_lines.min(viewport.height) as usize
         };
 
-        context.reverse();
-        context.dedup_by(|lhs, rhs| lhs.byte_range.start == rhs.byte_range.start);
-
-        // render from top most (last in the list)
         context = context
             .into_iter()
             // only take the nodes until 1 / 3 of the viewport is reached or the maximum amount of sticky nodes
@@ -1096,17 +1061,21 @@ impl EditorView {
         if config.sticky_context.indicator {
             let str = "─".repeat(viewport.width as usize);
 
-            context.push(StickyNode {
+            context.insert(StickyNode {
+                line: usize::MAX,
                 visual_line: context.len() as u16,
                 byte_range: 0..0,
                 indicator: Some(str),
                 top_first_byte,
                 cursor_byte,
                 has_context_end: false,
-            })
+            });
         }
 
-        Some(context)
+        let mut result: Vec<StickyNode> = context.into_iter().collect();
+        result.sort_by(|lnode, rnode| lnode.line.cmp(&rnode.line));
+
+        Some(result)
     }
 
     /// Apply the highlighting on the lines where a cursor is active

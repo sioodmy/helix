@@ -5,7 +5,6 @@
 ) @context
 
 [
-  (FnProto)
   (ContainerDecl)
   (ForStatement)
   (IfStatement)

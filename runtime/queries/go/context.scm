@@ -7,8 +7,6 @@
 ) @context
 
 [
-	(function_declaration)
-	(method_declaration)
   (const_declaration)
   (if_statement)
   (import_declaration)
