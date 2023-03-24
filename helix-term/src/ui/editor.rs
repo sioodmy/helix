@@ -819,9 +819,7 @@ impl EditorView {
                 }
 
                 // get the len of bytes of the text that will be written (the "definition" line)
-                let already_written = text
-                    .line(text.byte_to_line(node.byte_range.start))
-                    .len_bytes() as u16;
+                let already_written = text.line(node.line).len_bytes() as u16;
 
                 let dots = "...";
 
@@ -849,7 +847,7 @@ impl EditorView {
                         view.offset.horizontal_offset,
                         additional_area,
                     );
-                    new_offset.anchor = node.byte_range.end;
+                    new_offset.anchor = text.byte_to_char(node.byte_range.end);
                     let highlights = Self::doc_syntax_highlights(doc, new_offset.anchor, 1, theme);
                     render_text(
                         &mut renderer,
@@ -873,10 +871,10 @@ impl EditorView {
                     );
                 }
 
-                let line_num_anchor = node.byte_range.start;
+                new_offset.anchor = text.byte_to_char(node.byte_range.start);
 
                 // get all highlights from the latest point
-                let highlights = Self::doc_syntax_highlights(doc, line_num_anchor, 1, theme);
+                let highlights = Self::doc_syntax_highlights(doc, new_offset.anchor, 1, theme);
 
                 let mut renderer = TextRenderer::new(
                     surface,
@@ -885,7 +883,6 @@ impl EditorView {
                     view.offset.horizontal_offset,
                     line_context_area,
                 );
-                new_offset.anchor = line_num_anchor;
 
                 // limit the width to its size - 1, so that it won't draw trailing whitespace characters
                 line_context_area.width = already_written - 1;
@@ -950,10 +947,10 @@ impl EditorView {
         let tree = syntax.tree();
         let text = doc.text().slice(..);
         let viewport = view.inner_area(doc);
-        let cursor_byte = doc.selection(view.id).primary().cursor(text);
+        let cursor_byte = text.char_to_byte(doc.selection(view.id).primary().cursor(text));
 
         // Use the cached nodes to determine the current topmost viewport
-        let anchor_line = text.byte_to_line(view.offset.anchor);
+        let anchor_line = text.char_to_line(view.offset.anchor);
         let top_first_byte =
             text.line_to_byte(anchor_line + nodes.as_deref().map_or(0, |v| v.len()));
 
