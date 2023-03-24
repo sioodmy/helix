@@ -793,10 +793,10 @@ impl EditorView {
             // define sticky context styles
             let context_style = theme
                 .try_get("ui.sticky.context")
-                .unwrap_or_else(|| status_line_style);
+                .unwrap_or(status_line_style);
             let indicator_style = theme
                 .try_get("ui.sticky.indicator")
-                .unwrap_or_else(|| status_line_style);
+                .unwrap_or(status_line_style);
 
             let mut context_area = viewport;
             context_area.height = 1;
@@ -820,7 +820,11 @@ impl EditorView {
                 }
 
                 // get the len of bytes of the text that will be written (the "definition" line)
-                let already_written = text.line(node.line).len_bytes() as u16;
+                let line = text.line(node.line);
+                let tab_width_count = line.chars().filter(|c| *c == '\t').count();
+
+                let already_written =
+                    (line.len_bytes() + tab_width_count.saturating_mul(doc.tab_width() - 1)) as u16;
 
                 let dots = "...";
 

@@ -1,5 +1,4 @@
 (TopLevelDecl
-  (FnProto)
   (Block) @context.end
 ) @context
 
