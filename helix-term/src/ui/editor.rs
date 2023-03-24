@@ -785,17 +785,18 @@ impl EditorView {
             let text = doc.text().slice(..);
             let viewport = view.inner_area(doc);
 
+            // backup (status line) shall always exist
+            let status_line_style = theme
+                .try_get("ui.statusline")
+                .expect("`ui.statusline` exists");
+
             // define sticky context styles
-            let context_style = theme.try_get("ui.sticky.context").unwrap_or_else(|| {
-                theme
-                    .try_get("ui.statusline")
-                    .expect("`ui.statusline` exists")
-            });
-            let indicator_style = theme.try_get("ui.sticky.indicator").unwrap_or_else(|| {
-                theme
-                    .try_get("ui.statusline")
-                    .expect("`ui.statusline` exists")
-            });
+            let context_style = theme
+                .try_get("ui.sticky.context")
+                .unwrap_or_else(|| status_line_style);
+            let indicator_style = theme
+                .try_get("ui.sticky.indicator")
+                .unwrap_or_else(|| status_line_style);
 
             let mut context_area = viewport;
             context_area.height = 1;
