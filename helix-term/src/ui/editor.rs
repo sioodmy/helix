@@ -1014,27 +1014,18 @@ impl EditorView {
                     continue;
                 }
 
-                if let Some(node_pair) = &node_byte_range {
-                    context.insert(StickyNode {
-                        line: node.start_position().row,
-                        visual_line: 0,
-                        byte_range: node_pair.clone(),
-                        indicator: None,
-                        top_first_byte,
-                        cursor_byte,
-                        has_context_end: true,
-                    });
-                } else {
-                    context.insert(StickyNode {
-                        line: node.start_position().row,
-                        visual_line: 0,
-                        byte_range: node.start_byte()..node.start_byte(),
-                        indicator: None,
-                        top_first_byte,
-                        cursor_byte,
-                        has_context_end: false,
-                    });
-                }
+                context.insert(StickyNode {
+                    line: node.start_position().row,
+                    visual_line: 0,
+                    byte_range: node_byte_range
+                        .as_ref()
+                        .unwrap_or(&(node.start_byte()..node.start_byte()))
+                        .clone(),
+                    indicator: None,
+                    top_first_byte,
+                    cursor_byte,
+                    has_context_end: node_byte_range.is_some(),
+                });
             }
         }
         // context should be filled by now
