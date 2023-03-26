@@ -781,122 +781,87 @@ impl EditorView {
         translated_positions: &mut [TranslatedPosition],
         theme: &Theme,
     ) {
-        if let Some(context) = context {
-            let text = doc.text().slice(..);
-            let viewport = view.inner_area(doc);
+        let Some(context) = context else {
+            return;
+        };
 
-            // backup (status line) shall always exist
-            let status_line_style = theme
-                .try_get("ui.statusline")
-                .expect("`ui.statusline` exists");
+        let text = doc.text().slice(..);
+        let viewport = view.inner_area(doc);
 
-            // define sticky context styles
-            let context_style = theme
-                .try_get("ui.sticky.context")
-                .unwrap_or(status_line_style);
-            let indicator_style = theme
-                .try_get("ui.sticky.indicator")
-                .unwrap_or(status_line_style);
+        // backup (status line) shall always exist
+        let status_line_style = theme
+            .try_get("ui.statusline")
+            .expect("`ui.statusline` exists");
 
-            let mut context_area = viewport;
-            context_area.height = 1;
+        // define sticky context styles
+        let context_style = theme
+            .try_get("ui.sticky.context")
+            .unwrap_or(status_line_style);
+        let indicator_style = theme
+            .try_get("ui.sticky.indicator")
+            .unwrap_or(status_line_style);
 
-            for node in context {
-                surface.clear_with(context_area, context_style);
+        let mut context_area = viewport;
+        context_area.height = 1;
 
-                let mut new_offset = view.offset;
-                let mut line_context_area = context_area;
+        for node in context {
+            surface.clear_with(context_area, context_style);
 
-                if let Some(indicator) = node.indicator.as_deref() {
-                    // set the indicator
-                    surface.set_stringn(
-                        line_context_area.x,
-                        line_context_area.y,
-                        indicator,
-                        indicator.len(),
-                        indicator_style,
-                    );
-                    continue;
-                }
+            let mut new_offset = view.offset;
+            let mut line_context_area = context_area;
 
-                // get the len of bytes of the text that will be written (the "definition" line)
-                let line = text.line(node.line);
-                let tab_width_count = line.chars().filter(|c| *c == '\t').count();
+            if let Some(indicator) = node.indicator.as_deref() {
+                // set the indicator
+                surface.set_stringn(
+                    line_context_area.x,
+                    line_context_area.y,
+                    indicator,
+                    indicator.len(),
+                    indicator_style,
+                );
+                continue;
+            }
 
-                let already_written =
-                    (line.len_bytes() + tab_width_count.saturating_mul(doc.tab_width() - 1)) as u16;
+            // get the len of bytes of the text that will be written (the "definition" line)
+            let line = text.line(node.line);
+            let tab_width_count = line.chars().filter(|c| *c == '\t').count();
 
-                let dots = "...";
+            let already_written =
+                (line.len_bytes() + tab_width_count.saturating_mul(doc.tab_width() - 1)) as u16;
 
-                // if the definition of the function contains multiple lines
-                if node.has_context_end {
-                    let last_line = text.byte_to_line(node.byte_range.end);
-                    let overdraw_offset = text
-                        .line(last_line)
-                        .chars()
-                        .take_while(|c| c.is_whitespace())
-                        .count()
-                        + 1;
+            let dots = "...";
 
-                    // calculation of the correct space on where the end of the signature
-                    // should be drawn at
-                    let mut additional_area = line_context_area;
-                    additional_area.x += (already_written + dots.len() as u16)
-                        .saturating_sub(overdraw_offset as u16);
+            // if the definition of the function contains multiple lines
+            if node.has_context_end {
+                let last_line = text.byte_to_line(node.byte_range.end);
+                let overdraw_offset = text
+                    .line(last_line)
+                    .chars()
+                    .take_while(|c| c.is_whitespace())
+                    .count()
+                    + 1;
 
-                    // render the end of the function definition
-                    let mut renderer = TextRenderer::new(
-                        surface,
-                        doc,
-                        theme,
-                        view.offset.horizontal_offset,
-                        additional_area,
-                    );
-                    new_offset.anchor = text.byte_to_char(node.byte_range.end);
-                    let highlights = Self::doc_syntax_highlights(doc, new_offset.anchor, 1, theme);
-                    render_text(
-                        &mut renderer,
-                        text,
-                        new_offset,
-                        &doc.text_format(additional_area.width, Some(theme)),
-                        doc_annotations,
-                        highlights,
-                        theme,
-                        line_decoration,
-                        translated_positions,
-                    );
+                // calculation of the correct space on where the end of the signature
+                // should be drawn at
+                let mut additional_area = line_context_area;
+                additional_area.x +=
+                    (already_written + dots.len() as u16).saturating_sub(overdraw_offset as u16);
 
-                    // draw the "..." with the keyword.operator style
-                    surface.set_stringn(
-                        (already_written + line_context_area.x).saturating_sub(1),
-                        additional_area.y,
-                        dots,
-                        dots.len(),
-                        theme.get("keyword.operator"),
-                    );
-                }
-
-                new_offset.anchor = text.byte_to_char(node.byte_range.start);
-
-                // get all highlights from the latest point
-                let highlights = Self::doc_syntax_highlights(doc, new_offset.anchor, 1, theme);
-
+                // render the end of the function definition
                 let mut renderer = TextRenderer::new(
                     surface,
                     doc,
                     theme,
                     view.offset.horizontal_offset,
-                    line_context_area,
+                    additional_area,
                 );
-
-                // limit the width to its size - 1, so that it won't draw trailing whitespace characters
-                line_context_area.width = already_written - 1;
-
+                new_offset.anchor = text.byte_to_char(node.byte_range.end);
+                let highlights = Self::doc_syntax_highlights(doc, new_offset.anchor, 1, theme);
                 render_text(
                     &mut renderer,
                     text,
                     new_offset,
-                    &doc.text_format(line_context_area.width, Some(theme)),
+                    &doc.text_format(additional_area.width, Some(theme)),
                     doc_annotations,
                     highlights,
                     theme,
@@ -904,9 +869,46 @@ impl EditorView {
                     translated_positions,
                 );
 
-                // next node
-                context_area.y += 1;
+                // draw the "..." with the keyword.operator style
+                surface.set_stringn(
+                    (already_written + line_context_area.x).saturating_sub(1),
+                    additional_area.y,
+                    dots,
+                    dots.len(),
+                    theme.get("keyword.operator"),
+                );
             }
+
+            new_offset.anchor = text.byte_to_char(node.byte_range.start);
+
+            // get all highlights from the latest point
+            let highlights = Self::doc_syntax_highlights(doc, new_offset.anchor, 1, theme);
+
+            let mut renderer = TextRenderer::new(
+                surface,
+                doc,
+                theme,
+                view.offset.horizontal_offset,
+                line_context_area,
+            );
+
+            // limit the width to its size - 1, so that it won't draw trailing whitespace characters
+            line_context_area.width = already_written - 1;
+
+            render_text(
+                &mut renderer,
+                text,
+                new_offset,
+                &doc.text_format(line_context_area.width, Some(theme)),
+                doc_annotations,
+                highlights,
+                theme,
+                line_decoration,
+                translated_positions,
+            );
+
+            // next node
+            context_area.y += 1;
         }
     }
 
