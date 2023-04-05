@@ -10,6 +10,7 @@
   (LabeledStatement)
   (LoopStatement)
   (SwitchCase)
+  (SwitchExpr)
   (SwitchProng)
   (TestDecl)
   (WhileStatement)
