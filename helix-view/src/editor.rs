@@ -302,6 +302,10 @@ pub struct StickyContextConfig {
     ///
     /// Default: 0, which means that it is a fixed size based on the viewport
     pub max_lines: u16,
+
+    /// Whether or not the Sticky context shall also depend on the cursor position
+    /// Default to off
+    pub follow_cursor: bool,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]

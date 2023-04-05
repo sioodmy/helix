@@ -917,7 +917,7 @@ impl EditorView {
         start_index: u32,
         end_index: u32,
         top_first_byte: usize,
-        cursor_byte: usize,
+        last_scan_byte: usize,
     ) -> Option<std::ops::Range<usize>> {
         let end_nodes: Vec<_> = query_match.nodes_for_capture_index(end_index).collect();
         query_match
@@ -931,7 +931,7 @@ impl EditorView {
                         let end = it.start_byte();
                         start_range.contains(&end)
                             && start_range.contains(&top_first_byte)
-                            && start_range.contains(&cursor_byte)
+                            && start_range.contains(&last_scan_byte)
                             // only match @context.end nodes that aren't at the end of the line
                             && context.start_position().row != it.start_position().row
                     })
@@ -960,6 +960,12 @@ impl EditorView {
         let anchor_line = text.char_to_line(view.offset.anchor);
         let top_first_byte =
             text.line_to_byte(anchor_line + nodes.as_deref().map_or(0, |v| v.len()));
+
+        let last_scan_byte = if config.sticky_context.follow_cursor {
+            cursor_byte
+        } else {
+            top_first_byte
+        };
 
         let visual_cursor_pos = view
             .screen_coords_at_pos(doc, text, cursor_byte)
@@ -994,8 +1000,9 @@ impl EditorView {
         let mut context: HashSet<StickyNode> = HashSet::new();
 
         let mut cursor = QueryCursor::new();
+
         // only run the query from start to the cursor location
-        cursor.set_byte_range(0..cursor_byte);
+        cursor.set_byte_range(0..last_scan_byte);
         let query = &context_nodes.query;
         let query_nodes = cursor.matches(query, tree.root_node(), RopeProvider(text));
 
@@ -1006,10 +1013,10 @@ impl EditorView {
                 start_index,
                 end_index,
                 top_first_byte,
-                cursor_byte,
+                last_scan_byte,
             );
             for node in matched_node.nodes_for_capture_index(start_index) {
-                if (!node.byte_range().contains(&cursor_byte)
+                if (!node.byte_range().contains(&last_scan_byte)
                     || !node.byte_range().contains(&top_first_byte))
                     && node_byte_range.is_none()
                 {
@@ -1025,7 +1032,7 @@ impl EditorView {
                         .clone(),
                     indicator: None,
                     top_first_byte,
-                    cursor_byte,
+                    cursor_byte: last_scan_byte,
                     has_context_end: node_byte_range.is_some(),
                 });
             }
@@ -1072,7 +1079,7 @@ impl EditorView {
                 byte_range: 0..0,
                 indicator: Some(str),
                 top_first_byte,
-                cursor_byte,
+                cursor_byte: last_scan_byte,
                 has_context_end: false,
             });
         }
