@@ -824,12 +824,16 @@ impl EditorView {
 
             // get the len of bytes of the text that will be written (the "definition" line)
             let line = text.line(node.line);
-            let tab_width_count = line.chars().filter(|c| *c == '\t').count();
+            let tab_count = line.chars().filter(|c| *c == '\t').count();
 
             let already_written =
-                (line.len_bytes() + tab_width_count.saturating_mul(doc.tab_width() - 1)) as u16;
+                (line.len_bytes() + tab_count.saturating_mul(doc.tab_width() - 1)) as u16;
 
             let dots = "...";
+
+            let mut cleared_virtual_text_annotations = doc_annotations.clone();
+            cleared_virtual_text_annotations.clear_line_annotations();
+            cleared_virtual_text_annotations.clear_inline_annotations();
 
             // if the definition of the function contains multiple lines
             if node.has_context_end {
@@ -857,12 +861,13 @@ impl EditorView {
                 );
                 new_offset.anchor = text.byte_to_char(node.byte_range.end);
                 let highlights = Self::doc_syntax_highlights(doc, new_offset.anchor, 1, theme);
+
                 render_text(
                     &mut renderer,
                     text,
                     new_offset,
                     &doc.text_format(additional_area.width, Some(theme)),
-                    doc_annotations,
+                    &cleared_virtual_text_annotations,
                     highlights,
                     theme,
                     line_decoration,
@@ -900,7 +905,7 @@ impl EditorView {
                 text,
                 new_offset,
                 &doc.text_format(line_context_area.width, Some(theme)),
-                doc_annotations,
+                &cleared_virtual_text_annotations,
                 highlights,
                 theme,
                 line_decoration,
