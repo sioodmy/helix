@@ -824,7 +824,7 @@ impl EditorView {
 
             // get the len of bytes of the text that will be written (the "definition" line)
             let line = text.line(node.line);
-            let tab_count = line.chars().filter(|c| *c == '\t').count();
+            let tab_count = line.chars().take_while(|c| *c == '\t').count();
 
             let already_written =
                 (line.len_bytes() + tab_count.saturating_mul(doc.tab_width() - 1)) as u16;
@@ -844,6 +844,10 @@ impl EditorView {
                     .take_while(|c| c.is_whitespace())
                     .count()
                     + 1;
+
+                // handle tabs
+                let overdraw_offset =
+                    overdraw_offset + tab_count.saturating_mul(doc.tab_width() - 1);
 
                 // calculation of the correct space on where the end of the signature
                 // should be drawn at
@@ -875,8 +879,14 @@ impl EditorView {
                 );
 
                 // draw the "..." with the keyword.operator style
+                let new_x_location =
+                    (already_written + line_context_area.x).saturating_sub(match doc.line_ending {
+                        helix_core::LineEnding::Crlf => 2,
+                        helix_core::LineEnding::LF => 1,
+                    });
+
                 surface.set_stringn(
-                    (already_written + line_context_area.x).saturating_sub(1),
+                    new_x_location,
                     additional_area.y,
                     dots,
                     dots.len(),
@@ -984,7 +994,7 @@ impl EditorView {
         // nothing has changed, so the cached result can be returned
         if let Some(nodes) = nodes {
             if nodes.iter().any(|node| {
-                (node.top_first_byte == top_first_byte && node.cursor_byte == cursor_byte)
+                (node.top_first_byte == top_first_byte && node.cursor_byte == last_scan_byte)
                     && (visual_cursor_pos as usize) >= nodes.len()
             }) {
                 return Some(nodes.to_vec());
