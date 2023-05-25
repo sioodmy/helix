@@ -2,7 +2,7 @@ use super::{Context, Editor};
 use crate::{
     compositor::{self, Compositor},
     job::{Callback, Jobs},
-    ui::{self, overlay::overlayed, FilePicker, Picker, Popup, Prompt, PromptEvent, Text},
+    ui::{self, overlay::overlaid, FilePicker, Picker, Popup, Prompt, PromptEvent, Text},
 };
 use dap::{StackFrame, Thread, ThreadStates};
 use helix_core::syntax::{DebugArgumentValue, DebugConfigCompletion, DebugTemplate};
@@ -270,7 +270,7 @@ pub fn dap_launch(cx: &mut Context) {
 
     let templates = config.templates.clone();
 
-    cx.push_layer(Box::new(overlayed(Picker::new(
+    cx.push_layer(Box::new(overlaid(Picker::new(
         templates,
         (),
         |cx, template, _action| {
@@ -580,7 +580,7 @@ pub fn dap_variables(cx: &mut Context) {
 
     let contents = Text::from(tui::text::Text::from(variables));
     let popup = Popup::new("dap-variables", contents);
-    cx.push_layer(Box::new(popup));
+    cx.replace_or_push_layer("dap-variables", popup);
 }
 
 pub fn dap_terminate(cx: &mut Context) {
