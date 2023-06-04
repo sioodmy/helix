@@ -1008,6 +1008,7 @@ impl EditorView {
         let query = &context_nodes.query;
         let query_nodes = cursor.matches(query, tree.root_node(), RopeProvider(text));
 
+        let mut extended_lines = 0usize;
         for matched_node in query_nodes {
             // find @context.end nodes
             let node_byte_range = Self::get_context_paired_range(
@@ -1020,11 +1021,14 @@ impl EditorView {
             for node in matched_node.nodes_for_capture_index(start_index) {
                 if (!node.byte_range().contains(&last_scan_byte)
                     || !node.byte_range().contains(&top_first_byte))
+                    || node.start_position().row == anchor_line + extended_lines
                     && node_byte_range.is_none()
                 {
                     continue;
                 }
 
+                // Keep track of the nodes size
+                extended_lines += 1;
                 context.insert(StickyNode {
                     line: node.start_position().row,
                     visual_line: 0,
