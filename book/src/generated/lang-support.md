@@ -7,10 +7,11 @@
 | beancount | ✓ |  |  |  |  |
 | bibtex | ✓ |  |  |  | `texlab` |
 | bicep | ✓ |  |  |  | `bicep-langserver` |
+| blueprint | ✓ |  |  |  | `blueprint-compiler` |
 | c | ✓ | ✓ | ✓ | ✓ | `clangd` |
 | c-sharp | ✓ | ✓ |  |  | `OmniSharp` |
 | cabal |  |  |  |  |  |
-| cairo | ✓ |  |  |  |  |
+| cairo | ✓ | ✓ | ✓ |  | `cairo-language-server` |
 | capnp | ✓ |  | ✓ |  |  |
 | clojure | ✓ |  |  |  | `clojure-lsp` |
 | cmake | ✓ | ✓ | ✓ |  | `cmake-language-server` |
@@ -40,6 +41,7 @@
 | erlang | ✓ | ✓ |  |  | `erlang_ls` |
 | esdl | ✓ |  |  |  |  |
 | fish | ✓ | ✓ | ✓ |  |  |
+| forth | ✓ |  |  |  | `forth-lsp` |
 | fortran | ✓ |  | ✓ |  | `fortls` |
 | gdscript | ✓ | ✓ | ✓ |  |  |
 | git-attributes | ✓ |  |  |  |  |
@@ -57,6 +59,7 @@
 | graphql | ✓ |  |  |  |  |
 | hare | ✓ |  |  |  |  |
 | haskell | ✓ | ✓ |  |  | `haskell-language-server-wrapper` |
+| haskell-persistent | ✓ |  |  |  |  |
 | hcl | ✓ |  | ✓ |  | `terraform-ls` |
 | heex | ✓ | ✓ |  |  | `elixir-ls` |
 | hosts | ✓ |  |  |  |  |
@@ -66,11 +69,11 @@
 | iex | ✓ |  |  |  |  |
 | ini | ✓ |  |  |  |  |
 | java | ✓ | ✓ |  |  | `jdtls` |
-| javascript | ✓ | ✓ | ✓ |  | `typescript-language-server` |
+| javascript | ✓ | ✓ | ✓ | ✓ | `typescript-language-server` |
 | jsdoc | ✓ |  |  |  |  |
 | json | ✓ |  | ✓ | ✓ | `vscode-json-language-server` |
 | jsonnet | ✓ |  |  |  | `jsonnet-language-server` |
-| jsx | ✓ | ✓ | ✓ |  | `typescript-language-server` |
+| jsx | ✓ | ✓ | ✓ | ✓ | `typescript-language-server` |
 | julia | ✓ | ✓ | ✓ |  | `julia` |
 | just | ✓ | ✓ | ✓ |  |  |
 | kdl | ✓ |  |  |  |  |
@@ -86,7 +89,7 @@
 | markdoc | ✓ |  |  |  | `markdoc-ls` |
 | markdown | ✓ |  |  | ✓ | `marksman` |
 | markdown.inline | ✓ |  |  |  |  |
-| matlab | ✓ |  |  |  |  |
+| matlab | ✓ | ✓ | ✓ | ✓ |  |
 | mermaid | ✓ |  |  |  |  |
 | meson | ✓ |  | ✓ |  |  |
 | mint |  |  |  |  | `mint` |
@@ -141,12 +144,13 @@
 | svelte | ✓ |  |  |  | `svelteserver` |
 | sway | ✓ | ✓ | ✓ |  | `forc` |
 | swift | ✓ |  |  |  | `sourcekit-lsp` |
+| t32 | ✓ |  |  |  |  |
 | tablegen | ✓ | ✓ | ✓ |  |  |
 | task | ✓ |  |  |  |  |
 | tfvars | ✓ |  | ✓ |  | `terraform-ls` |
 | toml | ✓ |  |  | ✓ | `taplo` |
 | tsq | ✓ |  |  |  |  |
-| tsx | ✓ | ✓ | ✓ |  | `typescript-language-server` |
+| tsx | ✓ | ✓ | ✓ | ✓ | `typescript-language-server` |
 | twig | ✓ |  |  |  |  |
 | typescript | ✓ | ✓ | ✓ | ✓ | `typescript-language-server` |
 | ungrammar | ✓ |  |  |  |  |
@@ -156,9 +160,10 @@
 | verilog | ✓ | ✓ |  |  | `svlangserver` |
 | vhdl | ✓ |  |  |  | `vhdl_ls` |
 | vhs | ✓ |  |  |  |  |
-| vue | ✓ |  |  |  | `vls` |
+| vue | ✓ |  |  |  | `vue-language-server` |
 | wast | ✓ |  |  |  |  |
 | wat | ✓ |  |  |  |  |
+| webc | ✓ |  |  |  |  |
 | wgsl | ✓ |  |  |  | `wgsl_analyzer` |
 | wit | ✓ |  | ✓ |  |  |
 | xit | ✓ |  |  |  |  |
