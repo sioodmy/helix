@@ -43,8 +43,7 @@ pub struct StickyNode {
     visual_line: u16,
     byte_range: std::ops::Range<usize>,
     indicator: Option<String>,
-    top_first_byte: usize,
-    cursor_byte: usize,
+    anchor: usize,
     has_context_end: bool,
 }
 
@@ -191,11 +190,6 @@ impl EditorView {
             Box::new(highlights)
         };
 
-        if config.sticky_context.enable {
-            self.sticky_nodes =
-                Self::calculate_sticky_nodes(&self.sticky_nodes, doc, view, &config);
-        }
-
         if is_focused {
             let cursor = doc
                 .selection(view.id)
@@ -206,6 +200,11 @@ impl EditorView {
             let update_cursor_cache =
                 |_: &mut TextRenderer, pos| editor.cursor_cache.set(Some(Some(pos)));
             translated_positions.push((cursor, Box::new(update_cursor_cache)));
+        }
+
+        if config.sticky_context.enable {
+            self.sticky_nodes =
+                Self::calculate_sticky_nodes(&self.sticky_nodes, doc, view, &config);
         }
 
         Self::render_gutter(
@@ -960,17 +959,6 @@ impl EditorView {
         let viewport = view.inner_area(doc);
         let cursor_byte = text.char_to_byte(doc.selection(view.id).primary().cursor(text));
 
-        // Use the cached nodes to determine the current topmost viewport
-        let anchor_line = text.char_to_line(view.offset.anchor);
-        let top_first_byte = text
-            .line_to_byte(anchor_line + nodes.as_deref().map_or(0, |v| v.len().min(anchor_line)));
-
-        let last_scan_byte = if config.sticky_context.follow_cursor {
-            cursor_byte
-        } else {
-            top_first_byte
-        };
-
         let visual_cursor_pos = view
             .screen_coords_at_pos(doc, text, cursor_byte)
             .unwrap_or_default()
@@ -980,13 +968,27 @@ impl EditorView {
             return None;
         }
 
+        let anchor_line = text.char_to_line(view.offset.anchor);
+
+        let top_first_byte =
+            text.line_to_byte(anchor_line + nodes.as_ref().map_or(0, |nodes| nodes.len()));
+
+        let last_scan_byte = if config.sticky_context.follow_cursor {
+            cursor_byte
+        } else {
+            top_first_byte
+        };
+
         // nothing has changed, so the cached result can be returned
         if let Some(nodes) = nodes {
-            if nodes.iter().any(|node| {
-                (node.top_first_byte == top_first_byte && node.cursor_byte == last_scan_byte)
-                    && (visual_cursor_pos as usize) >= nodes.len()
-            }) {
-                return Some(nodes.to_vec());
+            if nodes.iter().any(|node| view.offset.anchor == node.anchor) {
+                return Some(
+                    nodes
+                        .iter()
+                        .take(visual_cursor_pos as usize)
+                        .map(|elem| elem.clone())
+                        .collect(),
+                );
             }
         }
 
@@ -1010,7 +1012,6 @@ impl EditorView {
         let query = &context_nodes.query;
         let query_nodes = cursor.matches(query, tree.root_node(), RopeProvider(text));
 
-        let mut extended_lines = 0usize;
         for matched_node in query_nodes {
             // find @context.end nodes
             let node_byte_range = Self::get_context_paired_range(
@@ -1020,17 +1021,16 @@ impl EditorView {
                 top_first_byte,
                 last_scan_byte,
             );
+
             for node in matched_node.nodes_for_capture_index(start_index) {
                 if (!node.byte_range().contains(&last_scan_byte)
                     || !node.byte_range().contains(&top_first_byte))
-                    || node.start_position().row == anchor_line + extended_lines
+                    && node.start_position().row != anchor_line + context.len()
                     && node_byte_range.is_none()
                 {
                     continue;
                 }
 
-                // Keep track of the nodes size
-                extended_lines += 1;
                 context.insert(StickyNode {
                     line: node.start_position().row,
                     visual_line: 0,
@@ -1039,8 +1039,7 @@ impl EditorView {
                         .unwrap_or(&(node.start_byte()..node.start_byte()))
                         .clone(),
                     indicator: None,
-                    top_first_byte,
-                    cursor_byte: last_scan_byte,
+                    anchor: view.offset.anchor,
                     has_context_end: node_byte_range.is_some(),
                 });
             }
@@ -1063,7 +1062,7 @@ impl EditorView {
         result.sort_by(|lnode, rnode| lnode.line.cmp(&rnode.line));
 
         result = result
-            .into_iter()
+            .iter()
             // only take the nodes until 1 / 3 of the viewport is reached or the maximum amount of sticky nodes
             .take(max_nodes_amount)
             .enumerate()
@@ -1072,7 +1071,7 @@ impl EditorView {
                     != visual_cursor_pos as usize
             }) // also only nodes that don't overlap with the visual cursor position
             .map(|(i, node)| {
-                let mut new_node = node;
+                let mut new_node = node.clone();
                 new_node.visual_line = i as u16;
                 new_node
             })
@@ -1086,8 +1085,7 @@ impl EditorView {
                 visual_line: result.len() as u16,
                 byte_range: 0..0,
                 indicator: Some(str),
-                top_first_byte,
-                cursor_byte: last_scan_byte,
+                anchor: view.offset.anchor,
                 has_context_end: false,
             });
         }
