@@ -654,15 +654,14 @@ impl EditorView {
                     (true, false) => gutter_selected_style_virtual,
                 };
 
-                let mut doc_line = Some(pos.doc_line);
+                let mut doc_line = pos.doc_line;
                 if let Some(current_context) = context
                     .as_ref()
                     .and_then(|c| c.iter().find(|n| n.visual_line == pos.visual_line))
                 {
-                    doc_line = if current_context.indicator.is_some() {
-                        None
-                    } else {
-                        Some(current_context.line)
+                    doc_line = match current_context.indicator {
+                        Some(_) => return,
+                        None => current_context.line,
                     };
                 }
 
@@ -926,22 +925,23 @@ impl EditorView {
         query_match
             .nodes_for_capture_index(start_index)
             .flat_map(move |context| {
-                end_nodes
-                    .clone()
-                    .into_iter()
-                    .filter(move |it| {
-                        let start_range = context.byte_range();
-                        let end = it.start_byte();
-                        start_range.contains(&end)
+                end_nodes.clone().into_iter().filter_map(move |it| {
+                    let start_range = context.byte_range();
+                    let end = it.start_byte();
+                    if start_range.contains(&end)
                             && start_range.contains(&top_first_byte)
                             && start_range.contains(&last_scan_byte)
                             // only match @context.end nodes that aren't at the end of the line
                             && context.start_position().row != it.start_position().row
-                    })
-                    // in some cases, the start byte of a block is on the next line
-                    // which causes to show the actual first line of content instead of
-                    // the actual wanted "end of signature" line
-                    .map(move |it| context.start_byte()..it.start_byte().saturating_sub(1))
+                    {
+                        Some(context.start_byte()..it.start_byte().saturating_sub(1))
+                    } else {
+                        None
+                    }
+                })
+                // in some cases, the start byte of a block is on the next line
+                // which causes to show the actual first line of content instead of
+                // the actual wanted "end of signature" line
             })
             .next()
     }

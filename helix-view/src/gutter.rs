@@ -13,8 +13,7 @@ fn count_digits(n: usize) -> usize {
     std::iter::successors(Some(n), |&n| (n >= 10).then_some(n / 10)).count()
 }
 
-pub type GutterFn<'doc> =
-    Box<dyn FnMut(Option<usize>, bool, bool, &mut String) -> Option<Style> + 'doc>;
+pub type GutterFn<'doc> = Box<dyn FnMut(usize, bool, bool, &mut String) -> Option<Style> + 'doc>;
 pub type Gutter =
     for<'doc> fn(&'doc Editor, &'doc Document, &View, &Theme, bool, usize) -> GutterFn<'doc>;
 
@@ -61,11 +60,10 @@ pub fn diagnostic<'doc>(
     let diagnostics = &doc.diagnostics;
 
     Box::new(
-        move |line: Option<usize>, _selected: bool, first_visual_line: bool, out: &mut String| {
+        move |line: usize, _selected: bool, first_visual_line: bool, out: &mut String| {
             if !first_visual_line {
                 return None;
             }
-            let line = line?;
             use helix_core::diagnostic::Severity;
             let first_diag_idx_maybe_on_line = diagnostics.partition_point(|d| d.line < line);
             let diagnostics_on_line = diagnostics[first_diag_idx_maybe_on_line..]
@@ -104,7 +102,7 @@ pub fn diff<'doc>(
         let mut hunk_i = 0;
         let mut hunk = hunks.nth_hunk(hunk_i);
         Box::new(
-            move |line: Option<usize>,
+            move |line: usize,
                   _selected: bool,
                   first_visual_line: bool,
                   out: &mut String| {
@@ -113,7 +111,6 @@ pub fn diff<'doc>(
                 // we need to special case removals here
                 // these technically do not have a range of lines to highlight (`hunk.after.start == hunk.after.end`).
                 // However we still want to display these hunks correctly we must not yet skip to the next hunk here
-                let line = line?;
 
                 while hunk.after.end < line as u32
                     || !hunk.is_pure_removal() && line as u32 == hunk.after.end
@@ -173,8 +170,7 @@ pub fn line_numbers<'doc>(
     let mode = editor.mode;
 
     Box::new(
-        move |line: Option<usize>, selected: bool, first_visual_line: bool, out: &mut String| {
-            let line = line?;
+        move |line: usize, selected: bool, first_visual_line: bool, out: &mut String| {
             if line == last_line_in_view && !draw_last {
                 write!(out, "{:>1$}", '~', width).unwrap();
                 Some(linenr)
@@ -233,7 +229,7 @@ pub fn padding<'doc>(
     _is_focused: bool,
 ) -> GutterFn<'doc> {
     Box::new(
-        |_line: Option<usize>, _selected: bool, _first_visual_line: bool, _out: &mut String| None,
+        |_line: usize, _selected: bool, _first_visual_line: bool, _out: &mut String| None,
     )
 }
 
@@ -265,11 +261,10 @@ pub fn breakpoints<'doc>(
     };
 
     Box::new(
-        move |line: Option<usize>, _selected: bool, first_visual_line: bool, out: &mut String| {
+        move |line: usize, _selected: bool, first_visual_line: bool, out: &mut String| {
             if !first_visual_line {
                 return None;
             }
-            let line = line?;
             let breakpoint = breakpoints
                 .iter()
                 .find(|breakpoint| breakpoint.line == line)?;
@@ -310,8 +305,7 @@ fn execution_pause_indicator<'doc>(
         doc.path().is_some() && frame_source_path.unwrap_or(None) == doc.path();
 
     Box::new(
-        move |line: Option<usize>, _selected: bool, first_visual_line: bool, out: &mut String| {
-            let line = line?;
+        move |line: usize, _selected: bool, first_visual_line: bool, out: &mut String| {
             if !first_visual_line
                 || !is_focused
                 || line != frame_line?
