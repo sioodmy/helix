@@ -102,10 +102,7 @@ pub fn diff<'doc>(
         let mut hunk_i = 0;
         let mut hunk = hunks.nth_hunk(hunk_i);
         Box::new(
-            move |line: usize,
-                  _selected: bool,
-                  first_visual_line: bool,
-                  out: &mut String| {
+            move |line: usize, _selected: bool, first_visual_line: bool, out: &mut String| {
                 // truncating the line is fine here because we don't compute diffs
                 // for files with more lines than i32::MAX anyways
                 // we need to special case removals here
@@ -228,9 +225,7 @@ pub fn padding<'doc>(
     _theme: &Theme,
     _is_focused: bool,
 ) -> GutterFn<'doc> {
-    Box::new(
-        |_line: usize, _selected: bool, _first_visual_line: bool, _out: &mut String| None,
-    )
+    Box::new(|_line: usize, _selected: bool, _first_visual_line: bool, _out: &mut String| None)
 }
 
 #[inline(always)]

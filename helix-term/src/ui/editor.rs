@@ -30,7 +30,7 @@ use helix_view::{
     keyboard::{KeyCode, KeyModifiers},
     Document, Editor, Theme, View,
 };
-use std::{collections::BTreeSet, mem::take, num::NonZeroUsize, path::PathBuf, rc::Rc, sync::Arc};
+use std::{mem::take, num::NonZeroUsize, path::PathBuf, rc::Rc, sync::Arc};
 
 use tui::{buffer::Buffer as Surface, text::Span};
 
@@ -45,26 +45,6 @@ pub struct StickyNode {
     indicator: Option<String>,
     anchor: usize,
     has_context_end: bool,
-}
-
-impl PartialEq for StickyNode {
-    fn eq(&self, other: &Self) -> bool {
-        self.line == other.line
-    }
-}
-
-impl Eq for StickyNode {}
-
-impl Ord for StickyNode {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.line.cmp(&other.line)
-    }
-}
-
-impl PartialOrd for StickyNode {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.line.cmp(&other.line))
-    }
 }
 
 pub struct EditorView {
@@ -208,15 +188,10 @@ impl EditorView {
             translated_positions.push((cursor, Box::new(update_cursor_cache)));
         }
 
-        if config.sticky_context.enable {
-            self.sticky_nodes =
-                Self::calculate_sticky_nodes(&self.sticky_nodes, doc, view, &config);
-        }
-
         Self::render_gutter(
             editor,
             doc,
-            &self.sticky_nodes,
+            self.sticky_nodes.clone(),
             view,
             theme,
             is_focused,
@@ -236,12 +211,19 @@ impl EditorView {
         );
 
         if config.sticky_context.enable {
+            self.sticky_nodes = Self::calculate_sticky_nodes(
+                &self.sticky_nodes,
+                doc,
+                view,
+                &config,
+                &editor.cursor_cache.get(),
+            );
+
             Self::render_sticky_context(
                 doc,
                 view,
                 surface,
                 &self.sticky_nodes,
-                &text_annotations,
                 &mut line_decorations,
                 &mut translated_positions,
                 theme,
@@ -620,7 +602,7 @@ impl EditorView {
     pub fn render_gutter<'d>(
         editor: &'d Editor,
         doc: &'d Document,
-        context: &'d Option<Vec<StickyNode>>,
+        context: Option<Vec<StickyNode>>,
         view: &View,
         theme: &Theme,
         is_focused: bool,
@@ -641,12 +623,17 @@ impl EditorView {
         let gutter_style_virtual = theme.get("ui.gutter.virtual");
         let gutter_selected_style_virtual = theme.get("ui.gutter.selected.virtual");
 
+        let context_rc = Rc::new(context);
+
         for gutter_type in view.gutters() {
             let mut gutter = gutter_type.style(editor, doc, view, theme, is_focused);
             let width = gutter_type.width(view, doc);
             // avoid lots of small allocations by reusing a text buffer for each line
             let mut text_to_draw = String::with_capacity(width);
             let cursors = cursors.clone();
+
+            let context_instance = context_rc.clone();
+
             let gutter_decoration = move |renderer: &mut TextRenderer, pos: LinePos| {
                 // TODO handle softwrap in gutters
                 let selected = cursors.contains(&pos.doc_line);
@@ -661,7 +648,8 @@ impl EditorView {
                 };
 
                 let mut doc_line = pos.doc_line;
-                if let Some(current_context) = context
+                if let Some(current_context) = context_instance
+                    .as_ref()
                     .as_ref()
                     .and_then(|c| c.iter().find(|n| n.visual_line == pos.visual_line))
                 {
@@ -769,7 +757,6 @@ impl EditorView {
         view: &View,
         surface: &mut Surface,
         context: &Option<Vec<StickyNode>>,
-        doc_annotations: &TextAnnotations,
         line_decoration: &mut [Box<dyn LineDecoration + '_>],
         translated_positions: &mut [TranslatedPosition],
         theme: &Theme,
@@ -783,8 +770,8 @@ impl EditorView {
 
         // backup (status line) shall always exist
         let status_line_style = theme
-            .try_get("ui.statusline")
-            .expect("`ui.statusline` exists");
+            .try_get("ui.statusline.context")
+            .expect("`ui.statusline.context` exists");
 
         // define sticky context styles
         let context_style = theme
@@ -824,9 +811,7 @@ impl EditorView {
 
             let dots = "...";
 
-            let mut cleared_virtual_text_annotations = doc_annotations.clone();
-            cleared_virtual_text_annotations.clear_line_annotations();
-            cleared_virtual_text_annotations.clear_inline_annotations();
+            let virtual_text_annotations = TextAnnotations::new();
 
             // if the definition of the function contains multiple lines
             if node.has_context_end {
@@ -864,7 +849,7 @@ impl EditorView {
                     text,
                     new_offset,
                     &doc.text_format(additional_area.width, Some(theme)),
-                    &cleared_virtual_text_annotations,
+                    &virtual_text_annotations,
                     highlights,
                     theme,
                     line_decoration,
@@ -908,7 +893,7 @@ impl EditorView {
                 text,
                 new_offset,
                 &doc.text_format(line_context_area.width, Some(theme)),
-                &cleared_virtual_text_annotations,
+                &virtual_text_annotations,
                 highlights,
                 theme,
                 line_decoration,
@@ -958,23 +943,22 @@ impl EditorView {
         doc: &Document,
         view: &View,
         config: &helix_view::editor::Config,
+        cursor_cache: &Option<Option<Position>>,
     ) -> Option<Vec<StickyNode>> {
+        let cursor_cache = cursor_cache.expect("cursor is cached")?;
+
         let syntax = doc.syntax()?;
         let tree = syntax.tree();
         let text = doc.text().slice(..);
         let viewport = view.inner_area(doc);
         let cursor_byte = text.char_to_byte(doc.selection(view.id).primary().cursor(text));
 
-        let visual_cursor_pos = view
-            .screen_coords_at_pos(doc, text, cursor_byte)
-            .unwrap_or_default()
-            .row as u16;
+        let anchor_line = text.char_to_line(view.offset.anchor);
+        let visual_cursor_row = anchor_line.saturating_sub(cursor_cache.row);
 
-        if visual_cursor_pos == 0 {
+        if visual_cursor_row == 0 {
             return None;
         }
-
-        let anchor_line = text.char_to_line(view.offset.anchor);
 
         let top_first_byte =
             text.line_to_byte(anchor_line + nodes.as_ref().map_or(0, |nodes| nodes.len()));
@@ -991,7 +975,7 @@ impl EditorView {
                 return Some(
                     nodes
                         .iter()
-                        .take(visual_cursor_pos as usize)
+                        .take(visual_cursor_row as usize)
                         .map(|elem| elem.clone())
                         .collect(),
                 );
@@ -1008,8 +992,8 @@ impl EditorView {
             .capture_index_for_name("context.end")
             .unwrap_or(start_index);
 
-        // context is list of numbers of lines that should be rendered in the LSP context
-        let mut context: BTreeSet<StickyNode> = BTreeSet::new();
+        // result is list of numbers of lines that should be rendered in the LSP context
+        let mut result: Vec<StickyNode> = Vec::new();
 
         let mut cursor = QueryCursor::new();
 
@@ -1031,13 +1015,13 @@ impl EditorView {
             for node in matched_node.nodes_for_capture_index(start_index) {
                 if (!node.byte_range().contains(&last_scan_byte)
                     || !node.byte_range().contains(&top_first_byte))
-                    && node.start_position().row != anchor_line + context.len()
+                    && node.start_position().row != anchor_line + result.len()
                     && node_byte_range.is_none()
                 {
                     continue;
                 }
 
-                context.insert(StickyNode {
+                result.push(StickyNode {
                     line: node.start_position().row,
                     visual_line: 0,
                     byte_range: node_byte_range
@@ -1050,10 +1034,14 @@ impl EditorView {
                 });
             }
         }
-        // context should be filled by now
-        if context.is_empty() {
+        // result should be filled by now
+        if result.is_empty() {
             return None;
         }
+
+        // Order of commands is important here
+        result.sort_unstable_by(|lhs, rhs| lhs.line.cmp(&rhs.line));
+        result.dedup_by(|lhs, rhs| lhs.line == rhs.line);
 
         // always cap the maximum amount of sticky contextes to 1/3 of the viewport
         // unless configured otherwise
@@ -1064,14 +1052,17 @@ impl EditorView {
             max_lines.min(viewport.height) as usize
         };
 
-        let mut result: Vec<_> = context
+        result = result
             .iter()
+            // always prioritize the nearest context
+            .rev()
             // only take the nodes until 1 / 3 of the viewport is reached or the maximum amount of sticky nodes
             .take(max_nodes_amount)
+            .rev()
             .enumerate()
             .take_while(|(i, _)| {
                 *i + Into::<usize>::into(config.sticky_context.indicator)
-                    != visual_cursor_pos as usize
+                    != visual_cursor_row as usize
             }) // also only nodes that don't overlap with the visual cursor position
             .map(|(i, node)| {
                 let mut new_node = node.clone();
