@@ -936,7 +936,7 @@ impl EditorView {
                     let end = it.start_byte();
                     // only match @context.end nodes that aren't at the end of the line
                     (ctx_start_row != it.start_position().row && ctx_start_range.contains(&end))
-                        .then_some(ctx_start_byte..it.start_byte().saturating_sub(1))
+                        .then_some(ctx_start_byte..end.saturating_sub(1))
                 })
                 // in some cases, the start byte of a block is on the next line
                 // which causes to show the actual first line of content instead of
