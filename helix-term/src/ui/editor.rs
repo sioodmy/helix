@@ -1052,13 +1052,12 @@ impl EditorView {
             max_lines.min(viewport.height) as usize
         };
 
+        let skip = result.len().saturating_sub(max_nodes_amount);
+
         result = result
             .iter()
-            // always prioritize the nearest context
-            .rev()
             // only take the nodes until 1 / 3 of the viewport is reached or the maximum amount of sticky nodes
-            .take(max_nodes_amount)
-            .rev()
+            .skip(skip)
             .enumerate()
             .take_while(|(i, _)| {
                 *i + Into::<usize>::into(config.sticky_context.indicator)
