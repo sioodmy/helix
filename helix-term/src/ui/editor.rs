@@ -914,20 +914,24 @@ impl EditorView {
         let end_nodes: Vec<_> = query_match.nodes_for_capture_index(end_index).collect();
         query_match
             .nodes_for_capture_index(start_index)
-            .find_map(move |context| {
-                for it in &end_nodes {
-                    let start_range = context.byte_range();
-                    let end = it.start_byte();
-                    if start_range.contains(&end)
-                            && start_range.contains(&top_first_byte)
-                            && start_range.contains(&last_scan_byte)
-                            // only match @context.params nodes that aren't at the end of the line
-                            && context.start_position().row != it.end_position().row
-                    {
-                        return Some(context.start_byte()..it.start_byte().saturating_sub(1));
-                    }
+            .find_map(|context| {
+                let ctx_start_range = context.byte_range();
+
+                let start_range_contains_bytes = ctx_start_range.contains(&top_first_byte)
+                    && ctx_start_range.contains(&last_scan_byte);
+                if !start_range_contains_bytes {
+                    return None;
                 }
-                None
+
+                let ctx_start_row = context.start_position().row;
+                let ctx_start_byte = ctx_start_range.start;
+
+                end_nodes.iter().find_map(|it| {
+                    let end = it.start_byte();
+                    // only match @context.end nodes that aren't at the end of the line
+                    (ctx_start_row != it.start_position().row && ctx_start_range.contains(&end))
+                        .then_some(ctx_start_byte..it.start_byte().saturating_sub(1))
+                })
                 // in some cases, the start byte of a block is on the next line
                 // which causes to show the actual first line of content instead of
                 // the actual wanted "end of signature" line
