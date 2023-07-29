@@ -915,7 +915,7 @@ impl EditorView {
         query_match
             .nodes_for_capture_index(start_index)
             .flat_map(move |context| {
-                end_nodes.clone().into_iter().filter_map(move |it| {
+                for it in &end_nodes {
                     let start_range = context.byte_range();
                     let end = it.start_byte();
                     if start_range.contains(&end)
@@ -924,11 +924,10 @@ impl EditorView {
                             // only match @context.params nodes that aren't at the end of the line
                             && context.start_position().row != it.end_position().row
                     {
-                        Some(context.start_byte()..it.end_byte().saturating_sub(1))
-                    } else {
-                        None
+                        return Some(context.start_byte()..it.start_byte().saturating_sub(1));
                     }
-                })
+                }
+                None
                 // in some cases, the start byte of a block is on the next line
                 // which causes to show the actual first line of content instead of
                 // the actual wanted "end of signature" line
