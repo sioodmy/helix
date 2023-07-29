@@ -914,7 +914,7 @@ impl EditorView {
         let end_nodes: Vec<_> = query_match.nodes_for_capture_index(end_index).collect();
         query_match
             .nodes_for_capture_index(start_index)
-            .flat_map(move |context| {
+            .find_map(move |context| {
                 for it in &end_nodes {
                     let start_range = context.byte_range();
                     let end = it.start_byte();
@@ -932,7 +932,6 @@ impl EditorView {
                 // which causes to show the actual first line of content instead of
                 // the actual wanted "end of signature" line
             })
-            .next()
     }
 
     /// Calculates the sticky nodes
