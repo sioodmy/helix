@@ -911,7 +911,13 @@ impl EditorView {
         top_first_byte: usize,
         last_scan_byte: usize,
     ) -> Option<std::ops::Range<usize>> {
-        let end_nodes: Vec<_> = query_match.nodes_for_capture_index(end_index).collect();
+        // Only allocates the vector if we find at least one context with a relevant range
+        let end_nodes = once_cell::unsync::Lazy::new(|| {
+            query_match
+                .nodes_for_capture_index(end_index)
+                .collect::<Vec<_>>()
+        });
+
         query_match
             .nodes_for_capture_index(start_index)
             .find_map(|context| {
