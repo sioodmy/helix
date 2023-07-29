@@ -811,7 +811,7 @@ impl EditorView {
 
             let dots = "...";
 
-            let virtual_text_annotations = TextAnnotations::new();
+            let virtual_text_annotations = TextAnnotations::default();
 
             // if the definition of the function contains multiple lines
             if node.has_context_end {

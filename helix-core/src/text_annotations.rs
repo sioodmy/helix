@@ -154,15 +154,6 @@ pub struct TextAnnotations {
 }
 
 impl TextAnnotations {
-    // Create a set of empty TextAnnotations
-    pub fn new() -> Self {
-        TextAnnotations {
-            inline_annotations: Vec::new(),
-            overlays: Vec::new(),
-            line_annotations: Vec::new(),
-        }
-    }
-
     /// Prepare the TextAnnotations for iteration starting at char_idx
     pub fn reset_pos(&self, char_idx: usize) {
         reset_pos(&self.inline_annotations, char_idx, |annot| annot.char_idx);
