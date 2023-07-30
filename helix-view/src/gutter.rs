@@ -108,7 +108,6 @@ pub fn diff<'doc>(
                 // we need to special case removals here
                 // these technically do not have a range of lines to highlight (`hunk.after.start == hunk.after.end`).
                 // However we still want to display these hunks correctly we must not yet skip to the next hunk here
-
                 while hunk.after.end < line as u32
                     || !hunk.is_pure_removal() && line as u32 == hunk.after.end
                 {

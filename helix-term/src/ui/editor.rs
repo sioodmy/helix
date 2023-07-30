@@ -1002,7 +1002,7 @@ impl EditorView {
         let query_nodes = cursor.matches(query, tree.root_node(), RopeProvider(text));
 
         for matched_node in query_nodes {
-            // find @context.end nodes
+            // find @context.params nodes
             let node_byte_range = Self::get_context_paired_range(
                 &matched_node,
                 start_index,
