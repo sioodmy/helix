@@ -1,20 +1,17 @@
 (arrow_function
-	body: (_) @context.end
+	parameters: (_) @context.params
 ) @context
 
 (function_declaration
-	body: (_) @context.end
+	parameters: (_) @context.params
 ) @context
 
 (function
-	body: (_) @context.end
+	parameters: (_) @context.params
 ) @context
 
-(
-  (expression_statement
-  	(call_expression
-      	function: (_)))
-  (statement_block) @context.end
+(expression_statement
+		parameters: (_) @context.params
 ) @context
 
 [

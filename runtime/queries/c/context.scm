@@ -1,7 +1,7 @@
 ; Credits to nvim-treesitter/nvim-treesitter-context
 
 (function_definition
-  body: (_) @context.end
+  (_ parameters: (_) @context.params)
 ) @context
 
 [

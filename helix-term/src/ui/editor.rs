@@ -804,34 +804,26 @@ impl EditorView {
 
             // get the len of bytes of the text that will be written (the "definition" line)
             let line = text.line(node.line);
-            let tab_count = line.chars().take_while(|c| *c == '\t').count();
-
-            let already_written =
-                (line.len_bytes() + tab_count.saturating_mul(doc.tab_width() - 1)) as u16;
-
+            let already_written = line.len_bytes() as u16;
             let dots = "...";
 
             let virtual_text_annotations = TextAnnotations::default();
 
             // if the definition of the function contains multiple lines
             if node.has_context_end {
-                let last_line = text.byte_to_line(node.byte_range.end);
-                let overdraw_offset = text
-                    .line(last_line)
-                    .chars()
-                    .take_while(|c| c.is_whitespace())
-                    .count()
-                    + 1;
-
-                // handle tabs
-                let overdraw_offset =
-                    overdraw_offset + tab_count.saturating_mul(doc.tab_width() - 1);
-
+                let (whitespace_offset, _) = visual_offset_from_block(
+                    text,
+                    text.line_to_byte(text.byte_to_line(node.byte_range.end)),
+                    node.byte_range.end,
+                    &helix_core::doc_formatter::TextFormat::default(),
+                    &TextAnnotations::default(),
+                );
+                let whitespace_offset = whitespace_offset.col as u16 + 1;
                 // calculation of the correct space on where the end of the signature
                 // should be drawn at
                 let mut additional_area = line_context_area;
                 additional_area.x +=
-                    (already_written + dots.len() as u16).saturating_sub(overdraw_offset as u16);
+                    (already_written + dots.len() as u16).saturating_sub(whitespace_offset);
 
                 // render the end of the function definition
                 let mut renderer = TextRenderer::new(
@@ -841,6 +833,7 @@ impl EditorView {
                     view.offset.horizontal_offset,
                     additional_area,
                 );
+
                 new_offset.anchor = text.byte_to_char(node.byte_range.end);
                 let highlights = Self::doc_syntax_highlights(doc, new_offset.anchor, 1, theme);
 
@@ -922,10 +915,10 @@ impl EditorView {
                     if start_range.contains(&end)
                             && start_range.contains(&top_first_byte)
                             && start_range.contains(&last_scan_byte)
-                            // only match @context.end nodes that aren't at the end of the line
-                            && context.start_position().row != it.start_position().row
+                            // only match @context.params nodes that aren't at the end of the line
+                            && context.start_position().row != it.end_position().row
                     {
-                        Some(context.start_byte()..it.start_byte().saturating_sub(1))
+                        Some(context.start_byte()..it.end_byte().saturating_sub(1))
                     } else {
                         None
                     }
@@ -989,7 +982,7 @@ impl EditorView {
         let start_index = context_nodes.query.capture_index_for_name("context")?;
         let end_index = context_nodes
             .query
-            .capture_index_for_name("context.end")
+            .capture_index_for_name("context.params")
             .unwrap_or(start_index);
 
         // result is list of numbers of lines that should be rendered in the LSP context
@@ -1045,12 +1038,8 @@ impl EditorView {
 
         // always cap the maximum amount of sticky contextes to 1/3 of the viewport
         // unless configured otherwise
-        let max_lines = config.sticky_context.max_lines;
-        let max_nodes_amount = if max_lines == 0 {
-            viewport.height as usize / 3
-        } else {
-            max_lines.min(viewport.height) as usize
-        };
+        let max_lines = config.sticky_context.max_lines as u16;
+        let max_nodes_amount = max_lines.min(viewport.height / 3) as usize;
 
         let skip = result.len().saturating_sub(max_nodes_amount);
 

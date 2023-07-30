@@ -1,5 +1,5 @@
 (TopLevelDecl
-  (Block) @context.end
+  (FnProto (ParamDeclList) @context.params)
 ) @context
 
 [

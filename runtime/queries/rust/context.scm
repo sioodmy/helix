@@ -1,5 +1,5 @@
 (function_item
-  (block) @context.end
+  (parameters) @context.params
 ) @context
 
 (mod_item
