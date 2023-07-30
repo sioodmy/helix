@@ -10,29 +10,17 @@ them under your local runtime directory (`~/.config/helix/runtime` on Linux for 
 
 The following [captures][tree-sitter-captures] are recognized:
 
-| Capture Name  |
-| ---           |
-| `context`     |
-| `context.end` |
+| Capture Name     |
+| ---              |
+| `context`        |
+| `context.params` |
 
 [Example query files][context-examples] can be found in the helix GitHub repository.
 
 ## Queries for the sticky-context feature
 
 All nodes that have a scope, should be captured with `context`, as an example a basic class.
-The `context.end` is a bit more complex, this node essentially just captures the last line of 
-a functions signatures (usually this should be the first block symbol, usually a `{`).
-As an example, consider the following function definition:
-```rs
-  fn some_function(
-    lhs: i32,
-    rhs: i32,
-  ) i32 {
-  // ...
-  }
-```
-The `context.end` node should capture the start of the function body, which has to be on the same
-line as the return type of said function. In this case `{` should be matched.
+The `context.params` is a capture for all the function parameters. 
 
 [tree-sitter-captures]: https://tree-sitter.github.io/tree-sitter/using-parsers#capturing-nodes
 [context-examples]: https://github.com/search?q=repo%3Ahelix-editor%2Fhelix+filename%3Acontext.scm&type=Code&ref=advsearch&l=&l=
