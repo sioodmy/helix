@@ -837,11 +837,14 @@ impl EditorView {
                 new_offset.anchor = text.byte_to_char(node.byte_range.end);
                 let highlights = Self::doc_syntax_highlights(doc, new_offset.anchor, 1, theme);
 
+                let mut text_format = doc.text_format(additional_area.width, Some(theme));
+                text_format.soft_wrap = false;
+
                 render_text(
                     &mut renderer,
                     text,
                     new_offset,
-                    &doc.text_format(additional_area.width, Some(theme)),
+                    &text_format,
                     &virtual_text_annotations,
                     highlights,
                     theme,
@@ -881,11 +884,14 @@ impl EditorView {
             // limit the width to its size - 1, so that it won't draw trailing whitespace characters
             line_context_area.width = already_written - 1;
 
+            let mut text_format = doc.text_format(line_context_area.width, Some(theme));
+            text_format.soft_wrap = false;
+
             render_text(
                 &mut renderer,
                 text,
                 new_offset,
-                &doc.text_format(line_context_area.width, Some(theme)),
+                &text_format,
                 &virtual_text_annotations,
                 highlights,
                 theme,
