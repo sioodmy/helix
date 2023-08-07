@@ -911,7 +911,7 @@ impl EditorView {
         top_first_byte: usize,
         last_scan_byte: usize,
     ) -> Option<std::ops::Range<usize>> {
-        // Only allocates the vector if we find at least one context with a relevant range
+        // get all the captured @context.params nodes
         let end_nodes = once_cell::unsync::Lazy::new(|| {
             query_match
                 .nodes_for_capture_index(end_index)
@@ -923,6 +923,7 @@ impl EditorView {
             .find_map(|context| {
                 let ctx_start_range = context.byte_range();
 
+                // filter all matches that are out of scope, based on follows-cursor
                 let start_range_contains_bytes = ctx_start_range.contains(&top_first_byte)
                     && ctx_start_range.contains(&last_scan_byte);
                 if !start_range_contains_bytes {
@@ -933,14 +934,11 @@ impl EditorView {
                 let ctx_start_byte = ctx_start_range.start;
 
                 end_nodes.iter().find_map(|it| {
-                    let end = it.start_byte();
-                    // only match @context.end nodes that aren't at the end of the line
-                    (ctx_start_row != it.start_position().row && ctx_start_range.contains(&end))
+                    let end = it.end_byte();
+                    // check whether or not @context.params nodes are on different lines
+                    (ctx_start_row != it.end_position().row && ctx_start_range.contains(&end))
                         .then_some(ctx_start_byte..end.saturating_sub(1))
                 })
-                // in some cases, the start byte of a block is on the next line
-                // which causes to show the actual first line of content instead of
-                // the actual wanted "end of signature" line
             })
     }
 
