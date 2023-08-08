@@ -15,12 +15,12 @@ use super::{
 
 #[derive(Debug, Clone)]
 pub struct StickyNode {
-    line: usize,
-    visual_line: u16,
-    byte_range: std::ops::Range<usize>,
-    indicator: Option<String>,
-    anchor: usize,
-    has_context_end: bool,
+    pub line: usize,
+    pub visual_line: u16,
+    pub byte_range: std::ops::Range<usize>,
+    pub indicator: Option<String>,
+    pub anchor: usize,
+    pub has_context_end: bool,
 }
 
 fn get_context_paired_range(
