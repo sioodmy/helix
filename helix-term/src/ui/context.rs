@@ -265,45 +265,42 @@ pub fn render_sticky_context(
 
         // if the definition of the function contains multiple lines
         if node.has_context_end {
-            let (whitespace_offset, _) = visual_offset_from_block(
-                text,
-                text.line_to_byte(text.byte_to_line(node.byte_range.end)),
-                node.byte_range.end,
-                &helix_core::doc_formatter::TextFormat::default(),
-                &TextAnnotations::default(),
+	   let line = text.byte_to_line(node.byte_range.end);
+	   let line_start = text.line_to_char(line);
+	   let anchor = text.byte_to_char(node.byte_range.end);
+            // TODO: we could avoid this when text rendering supports starting at
+            // a byte/char offset (doesn't work because of syntax highlighting atm)
+            let Position { col: whitespace_offset, .. } = pos_at_visual_coords(
+                text.slice(line_start..),
+                anchor - line_start,
             );
-            let whitespace_offset = whitespace_offset.col as u16 + 1;
-            // calculation of the correct space on where the end of the signature
+            // calculation of the correct space where the end of the signature
             // should be drawn at
             let mut additional_area = line_context_area;
-            additional_area.x +=
-                (already_written + dots.len() as u16).saturating_sub(whitespace_offset);
+            additional_area.x +=(already_written + dots.len() as u16);
 
             // render the end of the function definition
             let mut renderer = TextRenderer::new(
                 surface,
                 doc,
                 theme,
-                view.offset.horizontal_offset,
+                whitespace_offset as u16,
                 additional_area,
-            );
-
-            new_offset.anchor = text.byte_to_char(node.byte_range.end);
+            )
             let highlights = EditorView::doc_syntax_highlights(doc, new_offset.anchor, 1, theme);
-
-            let mut text_format = doc.text_format(additional_area.width, Some(theme));
+            let mut text_format = doc.text_format(additional_area.width.saturting_sub(already_written + dots.len() as u16), Some(theme));
             text_format.soft_wrap = false;
 
             render_text(
                 &mut renderer,
                 text,
-                new_offset,
+                ViewPosition { anchor, .. ViewPosition::default() },
                 &text_format,
                 &virtual_text_annotations,
                 highlights,
                 theme,
-                line_decoration,
-                translated_positions,
+                &mut [],
+                &mut [],
             );
 
             // draw the "..." with the keyword.operator style
