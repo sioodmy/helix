@@ -35,7 +35,7 @@ use tui::{buffer::Buffer as Surface, text::Span};
 
 use super::{
     completion::CompletionItem,
-    context::{calculate_sticky_nodes, render_sticky_context, StickyNode},
+    context::{self, StickyNode},
     statusline,
 };
 use super::{document::LineDecoration, lsp::SignatureHelp};
@@ -204,7 +204,7 @@ impl EditorView {
         );
 
         if config.sticky_context.enable {
-            self.sticky_nodes = calculate_sticky_nodes(
+            self.sticky_nodes = context::calculate_sticky_nodes(
                 &self.sticky_nodes,
                 doc,
                 view,
@@ -212,15 +212,7 @@ impl EditorView {
                 &editor.cursor_cache.get(),
             );
 
-            render_sticky_context(
-                doc,
-                view,
-                surface,
-                &self.sticky_nodes,
-                &mut line_decorations,
-                &mut translated_positions,
-                theme,
-            );
+            context::render_sticky_context(doc, view, surface, &self.sticky_nodes, theme);
         }
 
         Self::render_rulers(editor, doc, view, inner, surface, theme);

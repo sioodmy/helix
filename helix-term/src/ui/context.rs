@@ -1,15 +1,19 @@
+#[allow(deprecated)]
+use helix_core::visual_coords_at_pos;
+
 use helix_core::{
     syntax::RopeProvider,
     text_annotations::TextAnnotations,
     tree_sitter::{QueryCursor, QueryMatch},
-    visual_offset_from_block, Position,
+    Position,
 };
-use helix_view::{Document, Theme, View};
+
+use helix_view::{view::ViewPosition, Document, Theme, View};
 
 use tui::buffer::Buffer as Surface;
 
 use super::{
-    document::{render_text, LineDecoration, TextRenderer, TranslatedPosition},
+    document::{render_text, TextRenderer},
     EditorView,
 };
 
@@ -211,8 +215,6 @@ pub fn render_sticky_context(
     view: &View,
     surface: &mut Surface,
     context: &Option<Vec<StickyNode>>,
-    line_decoration: &mut [Box<dyn LineDecoration + '_>],
-    translated_positions: &mut [TranslatedPosition],
     theme: &Theme,
 ) {
     let Some(context) = context else {
@@ -238,17 +240,18 @@ pub fn render_sticky_context(
     let mut context_area = viewport;
     context_area.height = 1;
 
+    const DOTS: &str = "...";
+
     for node in context {
         surface.clear_with(context_area, context_style);
 
-        let mut new_offset = view.offset;
-        let mut line_context_area = context_area;
+        let mut view_offset = view.offset;
 
         if let Some(indicator) = node.indicator.as_deref() {
             // set the indicator
             surface.set_stringn(
-                line_context_area.x,
-                line_context_area.y,
+                context_area.x,
+                context_area.y,
                 indicator,
                 indicator.len(),
                 indicator_style,
@@ -256,99 +259,107 @@ pub fn render_sticky_context(
             continue;
         }
 
-        // get the len of bytes of the text that will be written (the "definition" line)
-        let line = text.line(node.line);
-        let already_written = line.len_bytes() as u16;
-        let dots = "...";
+        let node_start = text.byte_to_char(node.byte_range.start);
+        view_offset.anchor = node_start;
 
-        let virtual_text_annotations = TextAnnotations::default();
+        let first_node_line = text.line(text.char_to_line(node_start));
+        let first_node_width = first_node_line.len_chars();
 
-        // if the definition of the function contains multiple lines
-        if node.has_context_end {
-	   let line = text.byte_to_line(node.byte_range.end);
-	   let line_start = text.line_to_char(line);
-	   let anchor = text.byte_to_char(node.byte_range.end);
-            // TODO: we could avoid this when text rendering supports starting at
-            // a byte/char offset (doesn't work because of syntax highlighting atm)
-            let Position { col: whitespace_offset, .. } = pos_at_visual_coords(
-                text.slice(line_start..),
-                anchor - line_start,
-            );
-            // calculation of the correct space where the end of the signature
-            // should be drawn at
-            let mut additional_area = line_context_area;
-            additional_area.x +=(already_written + dots.len() as u16);
+        // calculate the reserved space for the basic render
+        let start_node_width = first_node_width.saturating_sub(
+            first_node_line
+                .chars()
+                .reversed()
+                .position(|c| !c.is_whitespace())
+                .unwrap_or(1),
+        );
 
-            // render the end of the function definition
+        #[allow(deprecated)]
+        let Position {
+            row: _,
+            col: start_vis_offset,
+        } = visual_coords_at_pos(first_node_line, start_node_width, doc.tab_width());
+
+        // get the highlighting of the basic capture
+        let highlights = EditorView::doc_syntax_highlights(doc, node_start, 1, theme);
+
+        let mut offset_area = context_area;
+
+        // Limit scope of borrowed surface
+        {
             let mut renderer = TextRenderer::new(
                 surface,
                 doc,
                 theme,
-                whitespace_offset as u16,
-                additional_area,
-            )
-            let highlights = EditorView::doc_syntax_highlights(doc, new_offset.anchor, 1, theme);
-            let mut text_format = doc.text_format(additional_area.width.saturting_sub(already_written + dots.len() as u16), Some(theme));
-            text_format.soft_wrap = false;
+                view.offset.horizontal_offset,
+                context_area,
+            );
+
+            // create the formatting for the basic node render
+            let mut formatting = doc.text_format(context_area.width, Some(theme));
+            formatting.soft_wrap = false;
 
             render_text(
                 &mut renderer,
                 text,
-                ViewPosition { anchor, .. ViewPosition::default() },
-                &text_format,
-                &virtual_text_annotations,
+                ViewPosition {
+                    anchor: node_start,
+                    ..ViewPosition::default()
+                },
+                &formatting,
+                &TextAnnotations::default(),
                 highlights,
                 theme,
                 &mut [],
                 &mut [],
             );
-
-            // draw the "..." with the keyword.operator style
-            let new_x_location =
-                (already_written + line_context_area.x).saturating_sub(match doc.line_ending {
-                    helix_core::LineEnding::Crlf => 2,
-                    helix_core::LineEnding::LF => 1,
-                });
-
-            surface.set_stringn(
-                new_x_location,
-                additional_area.y,
-                dots,
-                dots.len(),
-                theme.get("keyword.operator"),
-            );
+            offset_area.x += start_vis_offset as u16;
         }
 
-        new_offset.anchor = text.byte_to_char(node.byte_range.start);
+        if node.has_context_end {
+            let node_end = text.byte_to_char(node.byte_range.end);
+            let end_node_line = text.line(text.char_to_line(node_end));
+            let whitespace_offset = end_node_line
+                .chars()
+                .position(|c| !c.is_whitespace())
+                .unwrap_or(0);
 
-        // get all highlights from the latest point
-        let highlights = EditorView::doc_syntax_highlights(doc, new_offset.anchor, 1, theme);
+            #[allow(deprecated)]
+            let Position {
+                col: end_vis_offset,
+                row: _,
+            } = visual_coords_at_pos(end_node_line, whitespace_offset, doc.tab_width());
 
-        let mut renderer = TextRenderer::new(
-            surface,
-            doc,
-            theme,
-            view.offset.horizontal_offset,
-            line_context_area,
-        );
+            surface.set_stringn(
+                offset_area.x,
+                offset_area.y,
+                DOTS,
+                DOTS.len(),
+                theme.get("keyword.operator"),
+            );
+            offset_area.x += DOTS.len() as u16;
 
-        // limit the width to its size - 1, so that it won't draw trailing whitespace characters
-        line_context_area.width = already_written - 1;
+            let mut renderer = TextRenderer::new(surface, doc, theme, end_vis_offset, offset_area);
 
-        let mut text_format = doc.text_format(line_context_area.width, Some(theme));
-        text_format.soft_wrap = false;
+            let highlights = EditorView::doc_syntax_highlights(doc, node_end, 1, theme);
+            let mut formatting = doc.text_format(offset_area.width, Some(theme));
+            formatting.soft_wrap = false;
 
-        render_text(
-            &mut renderer,
-            text,
-            new_offset,
-            &text_format,
-            &virtual_text_annotations,
-            highlights,
-            theme,
-            line_decoration,
-            translated_positions,
-        );
+            render_text(
+                &mut renderer,
+                text,
+                ViewPosition {
+                    anchor: node_end,
+                    ..ViewPosition::default()
+                },
+                &formatting,
+                &TextAnnotations::default(),
+                highlights,
+                theme,
+                &mut [],
+                &mut [],
+            );
+        }
 
         // next node
         context_area.y += 1;
