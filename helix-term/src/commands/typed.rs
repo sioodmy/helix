@@ -559,6 +559,46 @@ fn set_line_ending(
     Ok(())
 }
 
+fn set_borders(
+    cx: &mut compositor::Context,
+    args: &[Cow<str>],
+    event: PromptEvent,
+) -> anyhow::Result<()> {
+    if event != PromptEvent::Validate {
+        return Ok(());
+    }
+
+    if args.is_empty() {
+        let borders = (cx.editor.popup_border, cx.editor.menu_border);
+        cx.editor.set_status(match borders {
+            (true, true) => "all",
+            (true, false) => "popup",
+            (false, true) => "menu",
+            (false, false) => "none",
+        });
+
+        return Ok(());
+    }
+
+    let arg = args.get(0).context("argument missing")?.to_lowercase();
+
+    if let Some(borders) = match arg {
+        arg if arg.starts_with("all") => Some((true, true)),
+        arg if arg.starts_with("popup") => Some((true, false)),
+        arg if arg.starts_with("menu") => Some((false, true)),
+        arg if arg.starts_with("none") => Some((false, false)),
+        _ => None,
+    } {
+        cx.editor.popup_border = borders.0;
+        cx.editor.menu_border = borders.1;
+    } else {
+        cx.editor
+            .set_status("Valid options are: none, popup, menu, all");
+    };
+
+    Ok(())
+}
+
 fn earlier(
     cx: &mut compositor::Context,
     args: &[Cow<str>],
@@ -2434,6 +2474,13 @@ pub const TYPABLE_COMMAND_LIST: &[TypableCommand] = &[
             #[cfg(feature = "unicode-lines")]
             doc: "Set the document's default line ending. Options: crlf, lf, cr, ff, nel.",
             fun: set_line_ending,
+            signature: CommandSignature::none(),
+        },
+        TypableCommand {
+            name: "popup-borders",
+            aliases: &[],
+            doc: "Set the borders for popups and menus",
+            fun: set_borders,
             signature: CommandSignature::none(),
         },
         TypableCommand {

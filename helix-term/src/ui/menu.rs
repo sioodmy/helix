@@ -4,14 +4,21 @@ use crate::{
     compositor::{Callback, Component, Compositor, Context, Event, EventResult},
     ctrl, key, shift,
 };
-use tui::{buffer::Buffer as Surface, widgets::Table};
+use tui::{
+    buffer::Buffer as Surface,
+    widgets::{Block, Borders, Table, Widget},
+};
 
 pub use tui::widgets::{Cell, Row};
 
 use fuzzy_matcher::skim::SkimMatcherV2 as Matcher;
 use fuzzy_matcher::FuzzyMatcher;
 
-use helix_view::{editor::SmartTabConfig, graphics::Rect, Editor};
+use helix_view::{
+    editor::SmartTabConfig,
+    graphics::{Margin, Rect},
+    Editor,
+};
 use tui::layout::Constraint;
 
 pub trait Item {
@@ -325,6 +332,15 @@ impl<T: Item + 'static> Component for Menu<T> {
         let selected = theme.get("ui.menu.selected");
         surface.clear_with(area, style);
 
+        let render_borders = cx.editor.menu_border;
+
+        let area = if render_borders {
+            Widget::render(Block::default().borders(Borders::ALL), area, surface);
+            area.inner(&Margin::vertical(1))
+        } else {
+            area
+        };
+
         let scroll = self.scroll;
 
         let options: Vec<_> = self
@@ -365,15 +381,17 @@ impl<T: Item + 'static> Component for Menu<T> {
             false,
         );
 
-        if let Some(cursor) = self.cursor {
-            let offset_from_top = cursor - scroll;
-            let left = &mut surface[(area.left(), area.y + offset_from_top as u16)];
-            left.set_style(selected);
-            let right = &mut surface[(
-                area.right().saturating_sub(1),
-                area.y + offset_from_top as u16,
-            )];
-            right.set_style(selected);
+        if !render_borders {
+            if let Some(cursor) = self.cursor {
+                let offset_from_top = cursor - scroll;
+                let left = &mut surface[(area.left(), area.y + offset_from_top as u16)];
+                left.set_style(selected);
+                let right = &mut surface[(
+                    area.right().saturating_sub(1),
+                    area.y + offset_from_top as u16,
+                )];
+                right.set_style(selected);
+            }
         }
 
         let fits = len <= win_height;
@@ -388,12 +406,13 @@ impl<T: Item + 'static> Component for Menu<T> {
             for i in 0..win_height {
                 cell = &mut surface[(area.right() - 1, area.top() + i as u16)];
 
-                cell.set_symbol("▐"); // right half block
+                let half_block = if render_borders { "▌" } else { "▐" };
 
                 if scroll_line <= i && i < scroll_line + scroll_height {
                     // Draw scroll thumb
+                    cell.set_symbol(half_block);
                     cell.set_fg(scroll_style.fg.unwrap_or(helix_view::theme::Color::Reset));
-                } else {
+                } else if !render_borders {
                     // Draw scroll track
                     cell.set_fg(scroll_style.bg.unwrap_or(helix_view::theme::Color::Reset));
                 }
