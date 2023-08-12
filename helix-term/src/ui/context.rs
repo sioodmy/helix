@@ -248,8 +248,6 @@ pub fn render_sticky_context(
     for node in context {
         surface.clear_with(context_area, context_style);
 
-        let mut view_offset = view.offset;
-
         if let Some(indicator) = node.indicator.as_deref() {
             // set the indicator
             surface.set_stringn(
@@ -263,25 +261,23 @@ pub fn render_sticky_context(
         }
 
         let node_start = text.byte_to_char(node.byte_range.start);
-        view_offset.anchor = node_start;
-
         let first_node_line = text.line(text.char_to_line(node_start));
-        let first_node_width = first_node_line.len_chars();
 
-        // calculate the reserved space for the basic render
-        let start_node_width = first_node_width.saturating_sub(
-            first_node_line
-                .chars()
-                .reversed()
-                .position(|c| !c.is_whitespace())
-                .unwrap_or(1),
-        );
+        // subtract 1 to handle indexes
+        let mut first_node_line_end = first_node_line.len_chars().saturating_sub(1);
+
+        // trim trailing whitespace / newline
+        first_node_line_end -= first_node_line
+            .chars()
+            .reversed()
+            .position(|c| !c.is_whitespace())
+            .unwrap_or(0);
 
         #[allow(deprecated)]
         let Position {
             row: _,
-            col: start_vis_offset,
-        } = visual_coords_at_pos(first_node_line, start_node_width, doc.tab_width());
+            col: first_node_line_end,
+        } = visual_coords_at_pos(first_node_line, first_node_line_end, doc.tab_width());
 
         // get the highlighting of the basic capture
         let highlights = EditorView::doc_syntax_highlights(doc, node_start, 1, theme);
@@ -290,13 +286,7 @@ pub fn render_sticky_context(
 
         // Limit scope of borrowed surface
         {
-            let mut renderer = TextRenderer::new(
-                surface,
-                doc,
-                theme,
-                view.offset.horizontal_offset,
-                context_area,
-            );
+            let mut renderer = TextRenderer::new(surface, doc, theme, 0, context_area);
 
             // create the formatting for the basic node render
             let mut formatting = doc.text_format(context_area.width, Some(theme));
@@ -316,7 +306,7 @@ pub fn render_sticky_context(
                 &mut [],
                 &mut [],
             );
-            offset_area.x += start_vis_offset as u16;
+            offset_area.x += first_node_line_end as u16;
         }
 
         if node.has_context_end {
