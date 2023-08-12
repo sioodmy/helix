@@ -73,7 +73,10 @@ pub fn calculate_sticky_nodes(
     config: &helix_view::editor::Config,
     cursor_cache: &Option<Option<Position>>,
 ) -> Option<Vec<StickyNode>> {
-    let cursor_cache = cursor_cache.expect("cursor is cached")?;
+    let Some(cursor_cache) = cursor_cache else {
+        return None;
+    };
+    let cursor_cache = cursor_cache.as_ref()?;
 
     let syntax = doc.syntax()?;
     let tree = syntax.tree();
