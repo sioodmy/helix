@@ -48,6 +48,8 @@ pub struct EditorView {
     pub(crate) completion: Option<Completion>,
     spinners: ProgressSpinners,
     sticky_nodes: Option<Vec<StickyNode>>,
+    /// Tracks if the terminal window is focused by reaction to terminal focus events
+    terminal_focused: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -77,6 +79,7 @@ impl EditorView {
             completion: None,
             spinners: ProgressSpinners::default(),
             sticky_nodes: None,
+            terminal_focused: true,
         }
     }
 
@@ -181,15 +184,18 @@ impl EditorView {
             translated_positions.push((cursor, Box::new(update_cursor_cache)));
         }
 
-        Self::render_gutter(
-            editor,
-            doc,
-            self.sticky_nodes.clone(),
-            view,
-            theme,
-            is_focused,
-            &mut line_decorations,
-        );
+        let gutter_overflow = view.gutter_offset(doc) == 0;
+        if !gutter_overflow {
+            Self::render_gutter(
+                editor,
+                doc,
+                self.sticky_nodes.clone(),
+                view,
+                theme,
+                is_focused & self.terminal_focused,
+                &mut line_decorations,
+            );
+        }
 
         render_document(
             surface,
@@ -1107,6 +1113,7 @@ impl EditorView {
                 let editor = &mut cxt.editor;
 
                 if let Some((pos, view_id)) = pos_and_view(editor, row, column, true) {
+                    let prev_view_id = view!(editor).id;
                     let doc = doc_mut!(editor, &view!(editor, view_id).doc);
 
                     if modifiers == KeyModifiers::ALT {
@@ -1114,6 +1121,10 @@ impl EditorView {
                         doc.set_selection(view_id, selection.push(Range::point(pos)));
                     } else {
                         doc.set_selection(view_id, Selection::point(pos));
+                    }
+
+                    if view_id != prev_view_id {
+                        self.clear_completion(editor);
                     }
 
                     editor.focus(view_id);
@@ -1409,13 +1420,17 @@ impl Component for EditorView {
 
             Event::Mouse(event) => self.handle_mouse_event(event, &mut cx),
             Event::IdleTimeout => self.handle_idle_timeout(&mut cx),
-            Event::FocusGained => EventResult::Ignored(None),
+            Event::FocusGained => {
+                self.terminal_focused = true;
+                EventResult::Consumed(None)
+            }
             Event::FocusLost => {
                 if context.editor.config().auto_save {
                     if let Err(e) = commands::typed::write_all_impl(context, false, false) {
                         context.editor.set_error(format!("{}", e));
                     }
                 }
+                self.terminal_focused = false;
                 EventResult::Consumed(None)
             }
         }
