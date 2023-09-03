@@ -335,7 +335,12 @@ pub struct StickyContextConfig {
 
 impl Default for StickyContextConfig {
     fn default() -> Self {
-        StickyContextConfig { enable: false, indicator: false, max_lines: 10, follow_cursor: false }
+        StickyContextConfig {
+            enable: false,
+            indicator: false,
+            max_lines: 10,
+            follow_cursor: false,
+        }
     }
 }
 
