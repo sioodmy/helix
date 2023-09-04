@@ -1,17 +1,13 @@
 (arrow_function
-	parameters: (_) @context.params
+	(formal_parameters) @context.params
 ) @context
 
 (function_declaration
-	parameters: (_) @context.params
+	(formal_parameters) @context.params
 ) @context
 
 (function
-	parameters: (_) @context.params
-) @context
-
-(expression_statement
-		parameters: (_) @context.params
+	(formal_parameters) @context.params
 ) @context
 
 [

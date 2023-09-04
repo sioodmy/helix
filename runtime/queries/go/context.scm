@@ -1,11 +1,11 @@
 ; Credits to nvim-treesitter/nvim-treesitter-context
 
 (function_declaration
-	(parameter_declaration) @context.params
+	(parameter_list) @context.params
 ) @context
 
 (method_declaration
-	(parameter_declaration) @context.params
+	(parameter_list) @context.params
 ) @context
 
 (for_statement

@@ -1,4 +1,4 @@
-(TopLevelDecl
+(Decl
   (FnProto (ParamDeclList) @context.params)
 ) @context
 
