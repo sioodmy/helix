@@ -85,7 +85,7 @@ pub fn calculate_sticky_nodes(
     let cursor_byte = text.char_to_byte(doc.selection(view.id).primary().cursor(text));
 
     let anchor_line = text.char_to_line(view.offset.anchor);
-    let visual_cursor_row = anchor_line.saturating_sub(cursor_cache.row);
+    let visual_cursor_row = cursor_cache.row;
 
     if visual_cursor_row == 0 {
         return None;
