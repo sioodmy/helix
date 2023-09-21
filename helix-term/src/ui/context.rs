@@ -17,7 +17,7 @@ use super::{
     EditorView,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct StickyNode {
     pub line: usize,
     pub visual_line: u16,
@@ -99,6 +99,7 @@ pub fn calculate_sticky_nodes(
     } else {
         top_first_byte
     };
+    let mut cached_nodes: Vec<StickyNode> = Vec::new();
 
     // nothing has changed, so the cached result can be returned
     if let Some(nodes) = nodes {
@@ -110,7 +111,50 @@ pub fn calculate_sticky_nodes(
                     .cloned()
                     .collect(),
             );
+        } else {
+            cached_nodes = nodes.clone();
+            // clear up the last node
+            if let Some(popped) = cached_nodes.pop() {
+                if popped.indicator.is_some() {
+                    _ = cached_nodes.pop();
+                }
+            }
+            // the node before is also important to clear, as in upwards movement
+            // we might encounter issues there
+            _ = cached_nodes.pop();
         }
+    }
+
+    let start_byte_range = cached_nodes
+        .last()
+        .unwrap_or(&StickyNode::default())
+        .byte_range
+        .clone();
+
+    let start_byte = if start_byte_range.start != tree.root_node().start_byte() {
+        start_byte_range.start
+    } else {
+        last_scan_byte
+    };
+
+    let mut start_node = tree
+        .root_node()
+        .descendant_for_byte_range(start_byte, start_byte + 1);
+
+    if let Some(start_node) = start_node {
+        if start_node.byte_range() == tree.root_node().byte_range() {
+            return None;
+        }
+    }
+
+    while start_node
+        .unwrap_or(tree.root_node())
+        .parent()
+        .unwrap_or(tree.root_node())
+        .byte_range()
+        != tree.root_node().byte_range()
+    {
+        start_node = start_node.expect("parent exists").parent();
     }
 
     let context_nodes = doc
@@ -126,12 +170,15 @@ pub fn calculate_sticky_nodes(
     // result is list of numbers of lines that should be rendered in the LSP context
     let mut result: Vec<StickyNode> = Vec::new();
 
-    let mut cursor = QueryCursor::new();
-
     // only run the query from start to the cursor location
-    cursor.set_byte_range(0..last_scan_byte);
+    let mut cursor = QueryCursor::new();
+    cursor.set_byte_range(start_byte_range.start..last_scan_byte);
     let query = &context_nodes.query;
-    let query_nodes = cursor.matches(query, tree.root_node(), RopeProvider(text));
+    let query_nodes = cursor.matches(
+        query,
+        start_node.unwrap_or(tree.root_node()),
+        RopeProvider(text),
+    );
 
     for matched_node in query_nodes {
         // find @context.params nodes
@@ -157,7 +204,7 @@ pub fn calculate_sticky_nodes(
                 visual_line: 0,
                 byte_range: node_byte_range
                     .as_ref()
-                    .unwrap_or(&(node.start_byte()..node.start_byte()))
+                    .unwrap_or(&(node.start_byte()..node.end_byte()))
                     .clone(),
                 indicator: None,
                 anchor: view.offset.anchor,
@@ -167,21 +214,30 @@ pub fn calculate_sticky_nodes(
     }
     // result should be filled by now
     if result.is_empty() {
+        if !cached_nodes.is_empty() {
+            return Some(cached_nodes);
+        }
+
         return None;
     }
 
+    let mut res = {
+        cached_nodes.append(&mut result);
+        cached_nodes
+    };
+
     // Order of commands is important here
-    result.sort_unstable_by(|lhs, rhs| lhs.line.cmp(&rhs.line));
-    result.dedup_by(|lhs, rhs| lhs.line == rhs.line);
+    res.sort_unstable_by(|lhs, rhs| lhs.line.cmp(&rhs.line));
+    res.dedup_by(|lhs, rhs| lhs.line == rhs.line);
 
     // always cap the maximum amount of sticky contextes to 1/3 of the viewport
     // unless configured otherwise
     let max_lines = config.sticky_context.max_lines as u16;
     let max_nodes_amount = max_lines.min(viewport.height / 3) as usize;
 
-    let skip = result.len().saturating_sub(max_nodes_amount);
+    let skip = res.len().saturating_sub(max_nodes_amount);
 
-    result = result
+    res = res
         .iter()
         // only take the nodes until 1 / 3 of the viewport is reached or the maximum amount of sticky nodes
         .skip(skip)
@@ -199,9 +255,9 @@ pub fn calculate_sticky_nodes(
     if config.sticky_context.indicator {
         let str = "─".repeat(viewport.width as usize);
 
-        result.push(StickyNode {
+        res.push(StickyNode {
             line: usize::MAX,
-            visual_line: result.len() as u16,
+            visual_line: res.len() as u16,
             byte_range: 0..0,
             indicator: Some(str),
             anchor: view.offset.anchor,
@@ -209,7 +265,7 @@ pub fn calculate_sticky_nodes(
         });
     }
 
-    Some(result)
+    return Some(res);
 }
 
 /// Render the sticky context
