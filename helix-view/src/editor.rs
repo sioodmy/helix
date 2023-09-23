@@ -43,9 +43,8 @@ pub use helix_core::diagnostic::Severity;
 use helix_core::{
     auto_pairs::AutoPairs,
     syntax::{self, AutoPairConfig, SoftWrap},
-    Change, LineEnding, NATIVE_LINE_ENDING,
+    Change, LineEnding, Position, Selection, NATIVE_LINE_ENDING,
 };
-use helix_core::{Position, Selection};
 use helix_dap as dap;
 use helix_lsp::lsp;
 
@@ -320,6 +319,8 @@ pub struct Config {
     pub insert_final_newline: bool,
     /// Enables smart tab
     pub smart_tab: Option<SmartTabConfig>,
+    /// Draw border around popups.
+    pub popup_border: PopupBorderConfig,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Eq, PartialOrd, Ord)]
@@ -844,6 +845,15 @@ impl From<LineEndingConfig> for LineEnding {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum PopupBorderConfig {
+    None,
+    All,
+    Popup,
+    Menu,
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -893,6 +903,7 @@ impl Default for Config {
             default_line_ending: LineEndingConfig::default(),
             insert_final_newline: true,
             smart_tab: Some(SmartTabConfig::default()),
+            popup_border: PopupBorderConfig::None,
         }
     }
 }
@@ -997,6 +1008,8 @@ pub struct Editor {
     /// field is set and any old requests are automatically
     /// canceled as a result
     pub completion_request_handle: Option<oneshot::Sender<()>>,
+    pub popup_border: bool,
+    pub menu_border: bool,
 }
 
 pub type Motion = Box<dyn Fn(&mut Editor)>;
@@ -1121,6 +1134,10 @@ impl Editor {
             needs_redraw: false,
             cursor_cache: Cell::new(None),
             completion_request_handle: None,
+            popup_border: conf.popup_border == PopupBorderConfig::All
+                || conf.popup_border == PopupBorderConfig::Popup,
+            menu_border: conf.popup_border == PopupBorderConfig::All
+                || conf.popup_border == PopupBorderConfig::Menu,
         }
     }
 
@@ -1151,6 +1168,10 @@ impl Editor {
     pub fn refresh_config(&mut self) {
         let config = self.config();
         self.auto_pairs = (&config.auto_pairs).into();
+        self.popup_border = config.popup_border == PopupBorderConfig::All
+            || config.popup_border == PopupBorderConfig::Popup;
+        self.menu_border = config.popup_border == PopupBorderConfig::All
+            || config.popup_border == PopupBorderConfig::Menu;
         self.reset_idle_timer();
         self._refresh();
     }
