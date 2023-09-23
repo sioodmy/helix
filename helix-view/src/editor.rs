@@ -323,6 +323,8 @@ pub struct Config {
     pub smart_tab: Option<SmartTabConfig>,
     /// Draw border around popups.
     pub popup_border: PopupBorderConfig,
+    /// Whether to render rainbow highlights. Defaults to `false`.
+    pub rainbow_brackets: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Eq, PartialOrd, Ord)]
@@ -942,6 +944,7 @@ impl Default for Config {
             insert_final_newline: true,
             smart_tab: Some(SmartTabConfig::default()),
             popup_border: PopupBorderConfig::None,
+            rainbow_brackets: false,
         }
     }
 }
@@ -1282,8 +1285,7 @@ impl Editor {
             return;
         }
 
-        let scopes = theme.scopes();
-        self.syn_loader.set_scopes(scopes.to_vec());
+        self.syn_loader.set_scopes(theme.scopes().to_vec());
 
         match preview {
             ThemeAction::Preview => {

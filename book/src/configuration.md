@@ -66,6 +66,7 @@ Its settings will be merged with the configuration directory `config.toml` and t
 | `default-line-ending` | The line ending to use for new documents. Can be `native`, `lf`, `crlf`, `ff`, `cr` or `nel`. `native` uses the platform's native line ending (`crlf` on Windows, otherwise `lf`). | `native` |
 | `insert-final-newline` | Whether to automatically insert a trailing line-ending on write if missing | `true` |
 | `popup-border` | Draw border around `popup`, `menu`, `all`, or `none` | `none` |
+| `rainbow-brackets` | Whether to render rainbow colors for matching brackets. Requires tree-sitter `rainbows.scm` queries for the language. | `false` |
 
 ### `[editor.statusline]` Section
 
