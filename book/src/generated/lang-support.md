@@ -59,7 +59,7 @@
 | gomod | ✓ |  |  |  |  | `gopls` |
 | gotmpl | ✓ |  |  |  |  | `gopls` |
 | gowork | ✓ |  |  |  |  | `gopls` |
-| graphql | ✓ |  |  |  |  |  |
+| graphql | ✓ |  |  |  |  | `graphql-lsp` |
 | hare | ✓ |  |  |  |  |  |
 | haskell | ✓ | ✓ |  |  |  | `haskell-language-server-wrapper` |
 | haskell-persistent | ✓ |  |  |  |  |  |
@@ -76,6 +76,7 @@
 | jinja | ✓ |  |  |  |  |  |
 | jsdoc | ✓ |  |  |  |  |  |
 | json | ✓ |  | ✓ | ✓ | ✓ | `vscode-json-language-server` |
+| json5 | ✓ |  |  |  |  |  |
 | jsonnet | ✓ |  |  |  |  | `jsonnet-language-server` |
 | jsx | ✓ | ✓ | ✓ | ✓ | ✓ | `typescript-language-server` |
 | julia | ✓ | ✓ | ✓ |  |  | `julia` |
@@ -154,6 +155,7 @@
 | t32 | ✓ |  |  |  |  |  |
 | tablegen | ✓ | ✓ | ✓ |  |  |  |
 | task | ✓ |  |  |  |  |  |
+| templ | ✓ |  |  |  |  | `templ` |
 | tfvars | ✓ |  | ✓ |  |  | `terraform-ls` |
 | todotxt | ✓ |  |  |  |  |  |
 | toml | ✓ |  |  | ✓ | ✓ | `taplo` |
@@ -178,6 +180,6 @@
 | wren | ✓ | ✓ | ✓ |  |  |  |
 | xit | ✓ |  |  |  |  |  |
 | xml | ✓ |  | ✓ |  | ✓ |  |
-| yaml | ✓ |  | ✓ | ✓ | ✓ | `yaml-language-server` |
+| yaml | ✓ |  | ✓ | ✓ | ✓ | `yaml-language-server`, `ansible-language-server` |
 | yuck | ✓ |  |  |  |  |  |
 | zig | ✓ | ✓ | ✓ | ✓ | ✓ | `zls` |
