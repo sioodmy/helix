@@ -46,7 +46,7 @@ impl Spinner {
     }
 
     pub fn dots(interval: u64) -> Self {
-        Self::new(vec!["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"], interval)
+        Self::new(vec!["UwU", "OwO"], interval)
     }
 
     pub fn start(&mut self) {
