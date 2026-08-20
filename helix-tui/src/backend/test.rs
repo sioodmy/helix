@@ -165,6 +165,10 @@ impl Backend for TestBackend {
         Ok(())
     }
 
+    fn write_raw(&mut self, _bytes: &[u8]) -> Result<(), io::Error> {
+        Ok(())
+    }
+
     fn supports_true_color(&self) -> bool {
         false
     }

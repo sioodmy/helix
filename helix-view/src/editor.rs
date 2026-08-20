@@ -310,6 +310,8 @@ pub struct Config {
     pub cursorline: bool,
     /// Highlight the columns cursors are currently on. Defaults to false.
     pub cursorcolumn: bool,
+    /// Colorize hex and rgb color codes. Defaults to true.
+    pub colorizer: bool,
     #[serde(deserialize_with = "deserialize_gutter_seq_or_struct")]
     pub gutters: GutterConfig,
     /// Middle click paste support. Defaults to true.
@@ -392,6 +394,8 @@ pub struct Config {
     pub soft_wrap: SoftWrap,
     /// Workspace specific lsp ceiling dirs
     pub workspace_lsp_roots: Vec<PathBuf>,
+    /// Contextual information on top of the viewport
+    pub sticky_context: StickyContextConfig,
     /// Which line ending to choose for new documents. Defaults to `native`. i.e. `crlf` on Windows, otherwise `lf`.
     pub default_line_ending: LineEndingConfig,
     /// Whether to automatically insert a trailing line-ending on write if missing. Defaults to `true`.
@@ -560,6 +564,41 @@ impl Default for SmartTabConfig {
         SmartTabConfig {
             enable: true,
             supersede_menu: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename_all = "kebab-case", deny_unknown_fields)]
+pub struct StickyContextConfig {
+    /// Display context of current top view if it is outside the view. Default to off
+    pub enable: bool,
+
+    /// Display an indicator whether to indicate if the sticky context is active
+    /// Eventually making this a string so that it is configurable.
+    /// Default to off
+    pub indicator: bool,
+
+    /// The max amount of lines to be displayed. (including indicator!)
+    /// The viewport is taken into account when changing this value.
+    /// So if the configured amount is more than the viewport height, it will be capped to a max
+    /// of the complete viewport height.
+    ///
+    /// Default: 10, which means that it is a fixed size based on the viewport
+    pub max_lines: u8,
+
+    /// Whether or not the Sticky context shall also depend on the cursor position
+    /// Default to off
+    pub follow_cursor: bool,
+}
+
+impl Default for StickyContextConfig {
+    fn default() -> Self {
+        StickyContextConfig {
+            enable: false,
+            indicator: false,
+            max_lines: 10,
+            follow_cursor: false,
         }
     }
 }
@@ -1090,11 +1129,20 @@ impl Default for WhitespaceCharacters {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum RainbowIndentOptions {
+    None,
+    Dim,
+    Normal,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
 pub struct IndentGuidesConfig {
     pub render: bool,
     pub character: char,
     pub skip_levels: u8,
+    pub rainbow_option: RainbowIndentOptions,
 }
 
 impl Default for IndentGuidesConfig {
@@ -1103,6 +1151,7 @@ impl Default for IndentGuidesConfig {
             skip_levels: 0,
             render: false,
             character: '│',
+            rainbow_option: RainbowIndentOptions::None,
         }
     }
 }
@@ -1187,6 +1236,7 @@ impl Default for Config {
             line_number: LineNumber::Absolute,
             cursorline: false,
             cursorcolumn: false,
+            colorizer: true,
             gutters: GutterConfig::default(),
             middle_click_paste: true,
             auto_pairs: AutoPairConfig::default(),
@@ -1223,6 +1273,7 @@ impl Default for Config {
             completion_replace: false,
             continue_comments: true,
             workspace_lsp_roots: Vec::new(),
+            sticky_context: StickyContextConfig::default(),
             default_line_ending: LineEndingConfig::default(),
             insert_final_newline: true,
             atomic_save: true,
@@ -1343,6 +1394,8 @@ pub struct Editor {
     pub mouse_down_range: Option<Range>,
     pub cursor_cache: CursorCache,
     pub workspace_trust: WorkspaceTrust,
+    pub harpoon: Vec<std::path::PathBuf>,
+    pub zen_mode: bool,
 }
 
 pub type Motion = Box<dyn Fn(&mut Editor)>;
@@ -1468,6 +1521,8 @@ impl Editor {
             cursor_cache: CursorCache::default(),
             dir_stack: VecDeque::with_capacity(DIR_STACK_CAP),
             workspace_trust,
+            harpoon: Vec::new(),
+            zen_mode: false,
         }
     }
 
@@ -2696,5 +2751,72 @@ impl CursorCache {
 
     pub fn reset(&self) {
         self.0.set(None)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum DashboardLogoType {
+    Image,
+    Ascii,
+}
+
+impl Default for DashboardLogoType {
+    fn default() -> Self {
+        DashboardLogoType::Image
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case", default, deny_unknown_fields)]
+pub struct DashboardConfig {
+    pub enable: bool,
+    pub logo_type: DashboardLogoType,
+    pub logo_path: Option<String>,
+    pub show_footer: bool,
+}
+
+impl Default for DashboardConfig {
+    fn default() -> Self {
+        Self {
+            enable: true,
+            logo_type: DashboardLogoType::default(),
+            logo_path: None,
+            show_footer: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case", default, deny_unknown_fields)]
+pub struct OrgConfig {
+    pub todo_keywords: Vec<String>,
+    pub bullets: Vec<String>,
+    pub inline_images: bool,
+}
+
+impl Default for OrgConfig {
+    fn default() -> Self {
+        Self {
+            todo_keywords: vec!["TODO".into(), "NEXT".into(), "IN-PROGRESS".into(), "WAITING".into(), "|".into(), "DONE".into(), "CANCELLED".into()],
+            bullets: vec!["◉".into(), "○".into(), "✸".into(), "✿".into(), "◆".into(), "◇".into()],
+            inline_images: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case", default, deny_unknown_fields)]
+pub struct OrgRoamConfig {
+    pub directory: Option<String>,
+    pub dailies_directory: String,
+}
+
+impl Default for OrgRoamConfig {
+    fn default() -> Self {
+        Self {
+            directory: Some("~/Notes".into()),
+            dailies_directory: "daily".into(),
+        }
     }
 }

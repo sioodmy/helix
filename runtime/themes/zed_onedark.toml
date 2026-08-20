@@ -50,7 +50,7 @@
 "warning" = { fg = "yellow", modifiers = ["bold"] }
 "error" = { fg = "red", modifiers = ["bold"] }
 
-"ui.background" = { bg = "ui-text-reversed" }
+"ui.background" = { "ui-text-reversed" }
 "ui.gutter" = { bg = "gray" }
 "ui.virtual" = { fg = "faint-gray" }
 "ui.virtual.indent-guide" = { fg = "faint-gray" }

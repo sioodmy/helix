@@ -7,7 +7,7 @@
 ## User interface
 "ui.selection" = { bg = "lotusBlue1" }
 "ui.selection.primary" = { bg = "lotusBlue1" }
-"ui.background" = { fg = "lotusInk0", bg = "lotusWhite0" }
+"ui.background" = { fg = "lotusInk0" }
 
 "ui.linenr" = { fg = "lotusInk1" }
 "ui.linenr.selected" = { fg = "lotusBrightOrange", modifiers = ["bold"] }

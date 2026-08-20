@@ -5,7 +5,7 @@ use crate::{
 };
 use tui::{
     buffer::Buffer as Surface,
-    widgets::{Block, Widget},
+    widgets::{Block, BorderType, Widget},
 };
 
 use helix_core::Position;
@@ -338,7 +338,13 @@ impl<T: Component> Component for Popup<T> {
         let mut inner = area;
         if render_borders {
             inner = area.inner(Margin::all(1));
-            Widget::render(Block::bordered(), area, surface);
+            let is_lsp = self.id == "hover" || self.id == "signature-help";
+            let block = if is_lsp {
+                Block::bordered()
+            } else {
+                Block::bordered().border_type(BorderType::Rounded)
+            };
+            Widget::render(block, area, surface);
         }
         let border = usize::from(render_borders);
 

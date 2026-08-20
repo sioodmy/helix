@@ -43,7 +43,7 @@ label = "#abcc8a"
 "diff.minus" = { fg = "redish",       modifiers = ["bold"] }
 "diff.delta" = { fg = "blueish",      modifiers = ["bold"] }
 
-"ui.background" = { bg = "background" } 
+"ui.background" = { "background" } 
 "ui.background.separator" = { fg = "white" } 
 "ui.linenr" = { fg = "#747575" } 
 "ui.linenr.selected" = { fg = "#c7dddd" } 

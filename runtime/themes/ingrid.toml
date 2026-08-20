@@ -43,7 +43,7 @@
 "diff.delta" = "#D4A520"
 "diff.minus" = "#D74E50"
 
-"ui.background" = { bg = "#FFFCFD" }
+"ui.background" = { "#FFFCFD" }
 "ui.linenr" = { fg = "#bbbbbb" }
 "ui.linenr.selected" = { fg = "#ED5466", modifiers = ["bold"] }
 "ui.cursorline" = { bg = "#F3EAE9" }

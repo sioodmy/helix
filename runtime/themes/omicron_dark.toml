@@ -9,7 +9,7 @@ diagnostic = { underline = { color = "ghost", style = "curl" } }
 "diagnostic.warning" = { underline = { color = "warn", style = "curl" } }
 "diagnostic.deprecated" = { fg = "code_unsafe", modifiers = ["crossed_out"] }
 
-"ui.background" = { bg = "bg" }
+"ui.background" = { "bg" }
 "ui.window" = { bg = "bg_ui" }
 "ui.gutter" = { bg = "bg_ui" }
 "ui.linenr" = "default_weak"

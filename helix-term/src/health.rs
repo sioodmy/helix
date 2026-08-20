@@ -17,6 +17,7 @@ pub enum TsFeature {
     AutoIndent,
     Tags,
     RainbowBracket,
+    Context,
 }
 
 impl TsFeature {
@@ -27,6 +28,7 @@ impl TsFeature {
             Self::AutoIndent,
             Self::Tags,
             Self::RainbowBracket,
+            Self::Context,
         ]
     }
 
@@ -37,6 +39,7 @@ impl TsFeature {
             Self::AutoIndent => "indents.scm",
             Self::Tags => "tags.scm",
             Self::RainbowBracket => "rainbows.scm",
+            Self::Context => "context.scm",
         }
     }
 
@@ -47,6 +50,7 @@ impl TsFeature {
             Self::AutoIndent => "Auto Indent",
             Self::Tags => "Code Navigation Tags",
             Self::RainbowBracket => "Rainbow Brackets",
+            Self::Context => "Sticky Context",
         }
     }
 
@@ -57,6 +61,7 @@ impl TsFeature {
             Self::AutoIndent => "Indent",
             Self::Tags => "Tags",
             Self::RainbowBracket => "Rainbow",
+            Self::Context => "Context",
         }
     }
 }

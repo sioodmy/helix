@@ -1,6 +1,6 @@
 # Author: RayGervais <raygervais@hotmail.ca>
 
-"ui.background" = { bg = "base00" }
+"ui.background" = { "base00" }
 "ui.virtual.whitespace" = "base03"
 "ui.virtual.jump-label" = { fg = "blue", modifiers = ["bold", "underlined"] }
 "ui.virtual.ruler" = { bg = "base01" }

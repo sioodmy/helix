@@ -38,7 +38,7 @@
 "diff.minus" = { fg = "red" }
 
 # 背景
-"ui.background" = { bg = "base03" }
+"ui.background" = { "base03" }
 
 "ui.virtual.whitespace" = { fg = "base01" }
 "ui.virtual.inlay-hint" = { fg = "base01", modifiers = ["italic"] }

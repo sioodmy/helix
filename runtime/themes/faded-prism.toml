@@ -31,7 +31,7 @@
 
 # UI
 
-"ui.background" = { fg = "white", bg = "dark_gray" }
+"ui.background" = { fg = "white" }
 
 "ui.linenr" = { fg = "off_white" }
 "ui.linenr.selected" = { fg = "white" }

@@ -69,7 +69,7 @@
 "type" = { fg = "yellow1" }
 "type.enum.variant" = { modifiers = ["italic"] }
 
-"ui.background" = { bg = "bg0" }
+"ui.background" = { "bg0" }
 "ui.bufferline" = { fg = "fg1", bg = "bg1" }
 "ui.bufferline.active" = { fg = "bg0", bg = "yellow0" }
 "ui.bufferline.background" = { bg = "bg2" }

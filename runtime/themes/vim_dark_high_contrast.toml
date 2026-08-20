@@ -1,4 +1,4 @@
-"ui.background" = { bg = "black" }
+"ui.background" = { "black" }
 "ui.bufferline" = { bg = "black" }
 "ui.bufferline.active" = { fg = "light-magenta", bg = "dark-magenta" }
 "ui.cursor" = { fg = "green", modifiers = ["reversed"] }

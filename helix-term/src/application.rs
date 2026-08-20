@@ -226,6 +226,7 @@ impl Application {
             }
         } else if stdin().is_terminal() || cfg!(feature = "integration") {
             editor.new_file(Action::VerticalSplit);
+            compositor.push(Box::new(ui::dashboard::Dashboard::new()));
         } else {
             editor
                 .new_file_from_stdin(Action::VerticalSplit)
@@ -288,7 +289,8 @@ impl Application {
         self.editor.cursor_cache.reset();
 
         let pos = pos.map(|pos| (pos.col as u16, pos.row as u16));
-        self.terminal.draw(pos, kind).unwrap();
+        
+        self.terminal.draw(pos, kind, &[]).unwrap();
     }
 
     pub async fn event_loop<S>(&mut self, input_stream: &mut S)

@@ -31,7 +31,7 @@
 "diff.minus" = "red"
 "diff.delta" = "orange"
 
-"ui.background" = { bg = "bg" }
+"ui.background" = { "bg" }
 "ui.cursor" = { bg = "cursor-light", fg = "bg" }
 "ui.cursor.primary" = { bg = "cursor", fg = "bg" }
 "ui.cursor.match" = { fg = "hot-pink", modifiers = ["bold"] }

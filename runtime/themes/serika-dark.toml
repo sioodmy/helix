@@ -32,7 +32,7 @@
 "module" = "blue"
 "special" = "orange"
 
-"ui.background" = { bg = "bg0" }
+"ui.background" = { "bg0" }
 "ui.background.separator" = { fg = "bg2" }
 "ui.bufferline" = { fg = "grey1" }
 "ui.bufferline.active" = { fg = "yellow" }

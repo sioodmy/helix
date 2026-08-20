@@ -28,7 +28,7 @@
 "markup.quote" = { fg = "ferra_bark" }
 "markup.raw" = { fg = "ferra_coral" }
 
-"ui.background" = { bg = "ferra_night" }
+"ui.background" = { "ferra_night" }
 "ui.cursor" = { fg = "ferra_night", bg = "ferra_blush" }
 "ui.cursor.match" = { fg = "ferra_night", bg = "ferra_bark" }
 "ui.cursor.select" = { fg = "ferra_night", bg = "ferra_rose" }

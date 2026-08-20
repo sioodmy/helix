@@ -69,7 +69,7 @@ hint = { fg = "hint" }
 "diagnostic.unnecessary" = { modifiers = ["dim"] }
 "diagnostic.deprecated" = { modifiers = ["crossed_out"] }
 
-"ui.background" = { bg = "bg", fg = "fg" }
+"ui.background" = { "bg", fg = "fg" }
 "ui.cursor" = { fg = "bg", bg = "gray" }
 "ui.cursor.primary" = { fg = "bg", bg = "fg" }
 "ui.cursor.primary.normal" = { fg = "bg", bg = "blue" }
@@ -90,6 +90,8 @@ hint = { fg = "hint" }
 "ui.statusline.normal" = { bg = "blue", fg = "bg", modifiers = ["bold"] }
 "ui.statusline.insert" = { bg = "light-green", fg = "bg", modifiers = ["bold"] }
 "ui.statusline.select" = { bg = "magenta", fg = "bg", modifiers = ["bold"] }
+"ui.sticky.context" = { bg = "fg-gutter" }
+"ui.sticky.indicator" = { fg = "comment", bg = "fg-gutter" }
 "ui.text" = { fg = "fg" }
 "ui.text.focus" = { bg = "bg-focus" }
 "ui.text.inactive" = { fg = "comment", modifiers = ["italic"] }

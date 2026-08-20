@@ -17,7 +17,7 @@
 "info" = "grey"
 "keyword" = "earl"
 "type" = "maple"
-"ui.background" = { bg = "chaotica" }
+"ui.background" = { "chaotica" }
 "ui.background.separator" = { fg = "snow" }
 "ui.cursor" = { fg = "black", bg = "earl" }
 "ui.cursorline.primary" = { bg = "deepspace" }

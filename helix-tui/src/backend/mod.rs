@@ -52,6 +52,10 @@ pub trait Backend {
     fn size(&self) -> Result<Rect, io::Error>;
     /// Flushes the terminal buffer
     fn flush(&mut self) -> Result<(), io::Error>;
+    /// Write raw bytes directly to the terminal writer.
+    /// Used for injecting escape sequences (e.g. Kitty image protocol)
+    /// that must go through the same writer as all other output.
+    fn write_raw(&mut self, bytes: &[u8]) -> Result<(), io::Error>;
     fn supports_true_color(&self) -> bool;
     fn get_theme_mode(&self) -> Option<helix_view::theme::Mode>;
     fn set_background_color(&mut self, color: Option<Color>) -> io::Result<()>;

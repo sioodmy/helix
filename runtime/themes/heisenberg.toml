@@ -32,7 +32,7 @@
 "diff.delta" = { fg = "orange" }
 
 # Interface
-"ui.background" = { bg = "background" }
+"ui.background" = { "background" }
 "ui.cursor" = { bg = "crystal_blue", fg = "background" }
 "ui.cursor.match" = { fg = "hazmat_yellow" }
 "ui.linenr" = { fg = "crystal_blue" }

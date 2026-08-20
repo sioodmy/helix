@@ -44,6 +44,7 @@ pub struct LanguageData {
     textobject_query: OnceCell<Option<TextObjectQuery>>,
     tag_query: OnceCell<Option<TagQuery>>,
     rainbow_query: OnceCell<Option<RainbowQuery>>,
+    context_query: OnceCell<Option<ContextQuery>>,
 }
 
 impl LanguageData {
@@ -55,6 +56,7 @@ impl LanguageData {
             textobject_query: OnceCell::new(),
             tag_query: OnceCell::new(),
             rainbow_query: OnceCell::new(),
+            context_query: OnceCell::new(),
         }
     }
 
@@ -187,18 +189,33 @@ impl LanguageData {
         Ok(Some(TagQuery { query }))
     }
 
-    fn tag_query(&self, loader: &Loader) -> Option<&TagQuery> {
+    pub fn tag_query(&self, loader: &Loader) -> Option<&TagQuery> {
         self.tag_query
             .get_or_init(|| {
                 let grammar = self.syntax_config(loader)?.grammar;
                 Self::compile_tag_query(grammar, &self.config)
                     .map_err(|err| {
                         log::error!("{err}");
+                        err
                     })
                     .ok()
                     .flatten()
             })
             .as_ref()
+    }
+
+    pub fn context_query(&self, loader: &Loader) -> Option<&ContextQuery> {
+        self.context_query.get_or_init(|| {
+            let grammar = self.syntax_config(loader)?.grammar;
+            let text = read_query(&self.config.language_id, "context.scm");
+            if text.is_empty() {
+                return None;
+            }
+            Query::new(grammar, &text, |_, _| Ok(()))
+                .map(|query| ContextQuery { query })
+                .map_err(|e| log::error!("Failed to compile context.scm query for {}: {e}", self.config.language_id))
+                .ok()
+        }).as_ref()
     }
 
     /// Compiles the rainbows.scm query for a language.
@@ -418,6 +435,10 @@ impl Loader {
 
     pub fn tag_query(&self, lang: Language) -> Option<&TagQuery> {
         self.language(lang).tag_query(self)
+    }
+
+    pub fn context_query(&self, lang: Language) -> Option<&ContextQuery> {
+        self.language(lang).context_query(self)
     }
 
     fn rainbow_query(&self, lang: Language) -> Option<&RainbowQuery> {
@@ -1071,6 +1092,11 @@ impl TextObjectQuery {
 
 #[derive(Debug)]
 pub struct TagQuery {
+    pub query: Query,
+}
+
+#[derive(Debug)]
+pub struct ContextQuery {
     pub query: Query,
 }
 

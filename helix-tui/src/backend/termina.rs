@@ -608,6 +608,10 @@ impl Backend for TerminaBackend {
         self.terminal.flush()
     }
 
+    fn write_raw(&mut self, bytes: &[u8]) -> io::Result<()> {
+        self.terminal.write_all(bytes)
+    }
+
     fn supports_true_color(&self) -> bool {
         self.capabilities.true_color
     }

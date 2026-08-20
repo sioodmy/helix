@@ -42,7 +42,7 @@ string = { fg = "brightMint" }
 "markup.link.text" = { fg = "lightBlue", modifiers = ["underlined"] }
 "markup.raw" = { fg = "lightBlue" }
 
-"ui.background" = { bg = "bg" }
+"ui.background" = { "bg" }
 "ui.background.separator" = { fg = "darkerGray" }
 "ui.linenr" = "darkerGray.50"
 "ui.linenr.selected" = "offWhite"

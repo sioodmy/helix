@@ -59,7 +59,7 @@
 "diff.delta" = { fg = "#fd971f" }
 "diff.minus" = { fg = "#f92672" }
 
-"ui.background" = { fg = "text", bg = "background" }
+"ui.background" = { fg = "text" }
 
 "ui.window" = { bg = "widget" }
 "ui.popup" = { fg = "text", bg = "widget" }

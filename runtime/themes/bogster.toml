@@ -41,7 +41,7 @@
 "diff.delta" = "bogster-orange"
 "diff.minus" = "bogster-lred"
 
-"ui.background" = { bg = "bogster-base1" }
+"ui.background" = { "bogster-base1" }
 "ui.linenr" = { fg = "bogster-base4" }
 "ui.linenr.selected" = { fg = "bogster-fg1" }
 "ui.cursorline" = { bg = "bogster-base0" }

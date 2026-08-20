@@ -59,7 +59,7 @@ punctuation = "fg-dim"
 # User Interface
 # --------------
 
-"ui.background" = { bg = "bg-main" }
+"ui.background" = { "bg-main" }
 "ui.background.separator" = { fg = "fg-dim" }
 
 "ui.linenr" = { fg = "fg-dim", bg = "bg-dim" }

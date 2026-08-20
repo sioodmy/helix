@@ -51,7 +51,7 @@
 "diff.delta" = "blue"
 "diff.minus" = "red"
 
-"ui.background" = { bg = "bg0" }
+"ui.background" = { "bg0" }
 "ui.cursor" = { modifiers = ['reversed'] }
 "ui.cursor.match" = { bg = "bg4" }
 "ui.cursor.insert" = { fg = "black", bg = "grey" }

@@ -51,7 +51,7 @@
 "markup.quote" = { fg = "teal_text", bg = "teal_bg" }
 "markup.list" = { fg = "purple_text", bg = "purple_bg" }
 
-"ui.background" = { fg = "base1", bg = "base7" }
+"ui.background" = { fg = "base1" }
 "ui.cursorline" = { bg = "base6" }
 "ui.cursor" = { fg = "base1", bg = "base7", modifiers = ["reversed"] }
 "ui.cursor.primary" = { fg = "base1", bg = "base7", modifiers = ["reversed"] }

@@ -431,15 +431,29 @@ impl Theme {
     /// scopes. For example if `ui.text.focus` is not defined in the theme,
     /// `ui.text` is tried and then `ui` is tried.
     pub fn try_get(&self, scope: &str) -> Option<Style> {
-        std::iter::successors(Some(scope), |s| Some(s.rsplit_once('.')?.0))
-            .find_map(|s| self.styles.get(s).copied())
+        let mut style = std::iter::successors(Some(scope), |s| Some(s.rsplit_once('.')?.0))
+            .find_map(|s| self.styles.get(s).copied());
+            
+        if scope.starts_with("ui.background") || scope.starts_with("ui.window") {
+            if let Some(s) = style.as_mut() {
+                s.bg = None;
+            }
+        }
+        style
     }
 
     /// Get the style of a scope, without falling back to dot separated broader
     /// scopes. For example if `ui.text.focus` is not defined in the theme, it
     /// will return `None`, even if `ui.text` is.
     pub fn try_get_exact(&self, scope: &str) -> Option<Style> {
-        self.styles.get(scope).copied()
+        let mut style = self.styles.get(scope).copied();
+        
+        if scope.starts_with("ui.background") || scope.starts_with("ui.window") {
+            if let Some(s) = style.as_mut() {
+                s.bg = None;
+            }
+        }
+        style
     }
 
     #[inline]
@@ -474,6 +488,10 @@ impl Theme {
 
     pub fn rainbow_length(&self) -> usize {
         self.rainbow_length
+    }
+
+    pub fn get_rainbow(&self, index: usize) -> Style {
+        self.highlights[index % self.rainbow_length]
     }
 
     fn from_toml(value: Value) -> (Self, Vec<String>) {

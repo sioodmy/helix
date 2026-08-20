@@ -44,7 +44,7 @@
 "special" = "my_yellow1"
 "string"  = "my_green"
 "type" = { fg = "my_white3", modifiers = ["italic"] }
-"ui.background" = { bg = "my_gray0" }
+"ui.background" = { "my_gray0" }
 "ui.cursor" = { bg = "my_white4", fg = "my_black" }
 "ui.cursorline" = { bg = "my_gray3" }
 "ui.cursorline.primary" = { bg = "my_black" }

@@ -60,7 +60,7 @@
 "markup.raw.block" = { fg = "white" }
 
 # USER INTERFACE 
-"ui.background" = { bg = "amber_shadow"}                                                             # workspace background
+"ui.background" = { "amber_shadow"}                                                             # workspace background
 "ui.background.separator" = { fg = "misty_white" }                                                   # picker separator below input line (space + j)
 "ui.gutter" = { bg = "amber_shadow" }                                                                # gutter
 "ui.gutter.selected" = { bg = "pitch_black" }                                                        # gutter for the line the cursor is on

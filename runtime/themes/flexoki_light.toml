@@ -1,6 +1,6 @@
 # Based on Flexoki: https://stephango.com/flexoki
 
-"ui.background" = { bg = "bg" }
+"ui.background" = { "bg" }
 "ui.cursor" = { fg = "tx", bg = "tx-3" }
 "ui.cursor.primary" = { fg = "bg", bg = "tx" }
 "ui.cursor.match" = { modifiers = ["bold"] }

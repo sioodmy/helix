@@ -11,7 +11,7 @@ diagnostic = { underline = { color = "ghost", style = "curl" } }
 	"crossed_out",
 ] }
 
-"ui.background" = { bg = "bg" }
+"ui.background" = { "bg" }
 "ui.window" = { bg = "bg_ui" }
 "ui.gutter" = { bg = "bg_ui" }
 "ui.linenr" = "default_weak"

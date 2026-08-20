@@ -5,7 +5,7 @@
 # License: MIT License
 
 # UI Colors
-"ui.background" = { bg = "black", fg = "blood-red" }
+"ui.background" = { "black", fg = "blood-red" }
 "ui.cursor" = { fg = "white", modifiers = ["reversed"] }
 "ui.cursor.primary" = { fg = "white", modifiers = ["reversed"] }
 "ui.cursor.match" = { bg = "selection-blue" }

@@ -19,6 +19,7 @@ pub struct Cell {
     pub underline_color: Color,
     pub underline_style: UnderlineStyle,
     pub modifier: Modifier,
+    pub link: Option<&'static str>,
 }
 
 /// Char when attempting to set symbol that exceeds capacity: �
@@ -101,17 +102,26 @@ impl Cell {
 
         self.modifier.insert(style.add_modifier);
         self.modifier.remove(style.sub_modifier);
+
+        if let Some(link) = style.link {
+            self.link = Some(link);
+        }
+
         self
     }
 
     /// Returns the current style of the cell
     pub fn style(&self) -> Style {
-        Style::default()
+        let mut style = Style::default()
             .fg(self.fg)
             .bg(self.bg)
             .underline_color(self.underline_color)
             .underline_style(self.underline_style)
-            .add_modifier(self.modifier)
+            .add_modifier(self.modifier);
+        if let Some(l) = self.link {
+            style = style.link(l);
+        }
+        style
     }
 
     /// Resets the cell to a default blank state
@@ -130,6 +140,7 @@ impl Default for Cell {
             underline_color: Color::Reset,
             underline_style: UnderlineStyle::Reset,
             modifier: Modifier::empty(),
+            link: None,
         }
     }
 }

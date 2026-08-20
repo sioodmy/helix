@@ -24,6 +24,9 @@
 - [`[editor.inline-diagnostics]` Section](#editorinline-diagnostics-section)
 - [`[editor.word-completion]` Section](#editorword-completion-section)
 - [`[editor.workspace-trust]` Section](#editorworkspace-trust-section)
+- [`[editor.dashboard]` Section](#editordashboard-section)
+- [`[editor.org]` Section](#editororg-section)
+- [`[editor.org-roam]` Section](#editororg-roam-section)
 
 ### `[editor]` Section
 

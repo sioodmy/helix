@@ -1,6 +1,6 @@
 # Author : Nick Ogden <nick@nickogden.org>
 
-"ui.background" = { bg = "grey01" }
+"ui.background" = { "grey01" }
 "ui.menu" = { fg = "grey05", bg = "grey00" }
 "ui.menu.selected" = { fg = "grey01", bg = "grey04" }
 "ui.linenr" = { fg = "grey03", bg = "grey01" }

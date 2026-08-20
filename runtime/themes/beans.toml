@@ -60,7 +60,7 @@
 "diff.delta" = "blue_accent"
 
 # ui specific
-"ui.background" = { bg = "background" }
+"ui.background" = { "background" }
 "ui.cursor" = { bg = "purple", fg = "selectionfg" }
 "ui.cursor.primary" = { bg = "dark_blue", fg = "white" }
 "ui.cursor.normal" = { bg = "purple", fg = "selectionfg" }

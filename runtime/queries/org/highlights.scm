@@ -1,24 +1,31 @@
-(headline (stars) @markup.heading.marker (#eq? @markup.heading.marker "*")) @markup.heading.1
-(headline (stars) @markup.heading.marker (#eq? @markup.heading.marker "**")) @markup.heading.2
-(headline (stars) @markup.heading.marker (#eq? @markup.heading.marker "***")) @markup.heading.3
-(headline (stars) @markup.heading.marker (#eq? @markup.heading.marker "****")) @markup.heading.4
-(headline (stars) @markup.heading.marker (#eq? @markup.heading.marker "*****")) @markup.heading.5
-(headline (stars) @markup.heading.marker (#eq? @markup.heading.marker "******")) @markup.heading.6
+(headline
+  (stars) @markup.heading.marker
+  (item) @markup.heading)
 
-(block) @markup.raw.block
-(list) @markup.list.unnumbered
-(directive) @markup.label
-(property_drawer) @markup.label
- 
+(item . (expr) @keyword.directive (#match? @keyword.directive "^(TODO|DONE|NEXT|WAITING)$"))
 
-((expr) @markup.bold
- (#match? @markup.bold "\\*.*\\*"))
+(tag_list (tag) @label)
 
-((expr) @markup.italic
- (#match? @markup.italic "/.*/"))
-((expr) @markup.raw.inline
- (#match? @markup.raw.inline "~.*~"))
+(timestamp) @constant.datetime
 
-((expr) @markup.quote
- (#match? @markup.quote "=.*="))
+(directive name: (expr) @keyword.directive (value)? @string)
 
+(property_drawer) @comment
+(property name: (expr) @variable.parameter (value)? @string)
+
+(comment) @comment
+
+(drawer name: (expr) @keyword.directive)
+(block name: (expr) @keyword.directive)
+(dynamic_block name: (expr) @keyword.directive)
+
+(bullet) @markup.list.unnumbered
+(checkbox) @punctuation.special
+
+((expr) @markup.bold (#match? @markup.bold "^\\*.*\\*$"))
+((expr) @markup.italic (#match? @markup.italic "^/.*/$"))
+((expr) @markup.raw.inline (#match? @markup.raw.inline "^~.*~$"))
+((expr) @markup.quote (#match? @markup.quote "^=.*=$"))
+((expr) @markup.strikethrough (#match? @markup.strikethrough "^\\+.*\\+$"))
+((expr) @markup.link.url (#match? @markup.link.url "^\\[\\[.*\\]\\]$"))
+((expr) @markup.math (#match? @markup.math "^\\$\\$.*\\$\\$$"))

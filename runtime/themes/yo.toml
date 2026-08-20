@@ -5,7 +5,7 @@
 # https://github.com/mrmcc3/yo-theme-helix
 
 # background/text
-"ui.background" = { fg = "p11", bg = "p2" }
+"ui.background" = { fg = "p11" }
 "ui.background.separator" = { fg = "p7" }
 "ui.text" = { fg = "p11" }
 "ui.text.focus" = { fg = "p12", modifiers = ["bold"] }

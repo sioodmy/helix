@@ -100,6 +100,8 @@ pub fn default() -> HashMap<Mode, KeyTrie> {
         "X" => extend_to_line_bounds,
         "A-x" => shrink_to_line_bounds,
 
+
+
         "m" => { "Match"
             "m" => match_brackets,
             "s" => surround_add,
@@ -234,6 +236,21 @@ pub fn default() -> HashMap<Mode, KeyTrie> {
             "d" => diagnostics_picker,
             "D" => workspace_diagnostics_picker,
             "g" => changed_file_picker,
+            "H" => { "Harpoon"
+                "a" => harpoon_add,
+                "r" => harpoon_remove,
+                "h" => harpoon_picker,
+                "1" => harpoon_nav_1,
+                "2" => harpoon_nav_2,
+                "3" => harpoon_nav_3,
+                "4" => harpoon_nav_4,
+                "5" => harpoon_nav_5,
+                "6" => harpoon_nav_6,
+                "7" => harpoon_nav_7,
+                "8" => harpoon_nav_8,
+                "9" => harpoon_nav_9,
+            },
+            "z" => toggle_zen_mode,
             "a" => code_action,
             "'" => last_picker,
             "G" => { "Debug (experimental)" sticky=true

@@ -23,7 +23,7 @@ impl Component for Info {
         ));
         surface.clear_with(area, popup_style);
 
-        let block = Block::bordered()
+        let block = Block::bordered().border_type(tui::widgets::BorderType::Rounded)
             .title(self.title.as_ref())
             .border_style(popup_style);
 

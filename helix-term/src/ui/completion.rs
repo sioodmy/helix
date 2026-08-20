@@ -47,21 +47,21 @@ impl menu::Item for CompletionItem {
 
         let kind = match self {
             CompletionItem::Lsp(LspCompletionItem { item, .. }) => match item.kind {
-                Some(lsp::CompletionItemKind::TEXT) => "text".into(),
-                Some(lsp::CompletionItemKind::METHOD) => "method".into(),
-                Some(lsp::CompletionItemKind::FUNCTION) => "function".into(),
-                Some(lsp::CompletionItemKind::CONSTRUCTOR) => "constructor".into(),
-                Some(lsp::CompletionItemKind::FIELD) => "field".into(),
-                Some(lsp::CompletionItemKind::VARIABLE) => "variable".into(),
-                Some(lsp::CompletionItemKind::CLASS) => "class".into(),
-                Some(lsp::CompletionItemKind::INTERFACE) => "interface".into(),
-                Some(lsp::CompletionItemKind::MODULE) => "module".into(),
-                Some(lsp::CompletionItemKind::PROPERTY) => "property".into(),
-                Some(lsp::CompletionItemKind::UNIT) => "unit".into(),
-                Some(lsp::CompletionItemKind::VALUE) => "value".into(),
-                Some(lsp::CompletionItemKind::ENUM) => "enum".into(),
-                Some(lsp::CompletionItemKind::KEYWORD) => "keyword".into(),
-                Some(lsp::CompletionItemKind::SNIPPET) => "snippet".into(),
+                Some(lsp::CompletionItemKind::TEXT) => "󰉿 text ".into(),
+                Some(lsp::CompletionItemKind::METHOD) => "󰆧 method ".into(),
+                Some(lsp::CompletionItemKind::FUNCTION) => "󰊕 function ".into(),
+                Some(lsp::CompletionItemKind::CONSTRUCTOR) => " constructor ".into(),
+                Some(lsp::CompletionItemKind::FIELD) => "󰜢 field ".into(),
+                Some(lsp::CompletionItemKind::VARIABLE) => "󰀫 variable ".into(),
+                Some(lsp::CompletionItemKind::CLASS) => "󰠱 class ".into(),
+                Some(lsp::CompletionItemKind::INTERFACE) => " interface ".into(),
+                Some(lsp::CompletionItemKind::MODULE) => " module ".into(),
+                Some(lsp::CompletionItemKind::PROPERTY) => "󰜢 property ".into(),
+                Some(lsp::CompletionItemKind::UNIT) => "󰑭 unit ".into(),
+                Some(lsp::CompletionItemKind::VALUE) => "󰎠 value ".into(),
+                Some(lsp::CompletionItemKind::ENUM) => " enum ".into(),
+                Some(lsp::CompletionItemKind::KEYWORD) => "󰌋 keyword ".into(),
+                Some(lsp::CompletionItemKind::SNIPPET) => " snippet ".into(),
                 Some(lsp::CompletionItemKind::COLOR) => item
                     .documentation
                     .as_ref()
@@ -77,21 +77,21 @@ impl menu::Item for CompletionItem {
                         text.get(text.len().checked_sub(7)?..)
                     })
                     .and_then(|c| Color::from_hex(c).ok())
-                    .map_or("color".into(), |color| {
+                    .map_or("󰏘 color ".into(), |color| {
                         Spans::from(vec![
-                            Span::raw("color "),
+                            Span::raw("󰏘 color "),
                             Span::styled("■", Style::default().fg(color)),
                         ])
                     }),
-                Some(lsp::CompletionItemKind::FILE) => "file".into(),
-                Some(lsp::CompletionItemKind::REFERENCE) => "reference".into(),
-                Some(lsp::CompletionItemKind::FOLDER) => "folder".into(),
-                Some(lsp::CompletionItemKind::ENUM_MEMBER) => "enum_member".into(),
-                Some(lsp::CompletionItemKind::CONSTANT) => "constant".into(),
-                Some(lsp::CompletionItemKind::STRUCT) => "struct".into(),
-                Some(lsp::CompletionItemKind::EVENT) => "event".into(),
-                Some(lsp::CompletionItemKind::OPERATOR) => "operator".into(),
-                Some(lsp::CompletionItemKind::TYPE_PARAMETER) => "type_param".into(),
+                Some(lsp::CompletionItemKind::FILE) => "󰈙 file ".into(),
+                Some(lsp::CompletionItemKind::REFERENCE) => "󰈇 reference ".into(),
+                Some(lsp::CompletionItemKind::FOLDER) => "󰉋 folder ".into(),
+                Some(lsp::CompletionItemKind::ENUM_MEMBER) => " enum_member ".into(),
+                Some(lsp::CompletionItemKind::CONSTANT) => "󰏿 constant ".into(),
+                Some(lsp::CompletionItemKind::STRUCT) => "󰙅 struct ".into(),
+                Some(lsp::CompletionItemKind::EVENT) => " event ".into(),
+                Some(lsp::CompletionItemKind::OPERATOR) => "󰆕 operator ".into(),
+                Some(lsp::CompletionItemKind::TYPE_PARAMETER) => "󰊄 type_param ".into(),
                 Some(kind) => {
                     log::error!("Received unknown completion item kind: {:?}", kind);
                     "".into()
@@ -573,7 +573,7 @@ impl Component for Completion {
 
         if cx.editor.popup_border() {
             use tui::widgets::{Block, Widget};
-            Widget::render(Block::bordered(), doc_area, surface);
+            Widget::render(Block::bordered().border_type(tui::widgets::BorderType::Rounded), doc_area, surface);
         }
 
         markdown_doc.render(doc_area, surface, cx);

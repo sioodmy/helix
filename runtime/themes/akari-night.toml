@@ -3,7 +3,7 @@
 # Akari Night — A dark palette inspired by Japanese alleys lit by round lanterns.
 
 # UI elements
-"ui.background" = { bg = "background" }
+"ui.background" = { "background" }
 "ui.text" = "foreground"
 "ui.text.focus" = { fg = "selection-fg", bg = "selection-bg" }
 "ui.text.inactive" = { fg = "bright-black" }

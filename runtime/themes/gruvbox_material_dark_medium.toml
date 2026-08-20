@@ -70,7 +70,7 @@ hint = "green"
 info = "blue"
 warning = "yellow"
 
-"ui.background" = { fg = "fg0", bg = "bg0" }
+"ui.background" = { fg = "fg0" }
 "ui.bufferline" = { fg = "fg1", bg = "bg4" }
 "ui.bufferline.active" = { fg = "bg0", bg = "grey2" }
 "ui.bufferline.background" = { bg = "bg1" }

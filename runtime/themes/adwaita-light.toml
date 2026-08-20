@@ -61,7 +61,7 @@ inherits="adwaita-dark"
 "diff.delta" = "orange_5"
 "diff.delta.moved" = "orange_4"
 
-"ui.background" = { fg = "dark_4", bg = "light_1" }
+"ui.background" = { fg = "dark_4" }
 "ui.background.separator" = { fg = "split_and_borders", bg = "light_2" }
 "ui.cursor" = { fg = "light_2", bg = "light_7" }
 "ui.cursor.normal" = { fg = "light_2", bg = "light_7" }

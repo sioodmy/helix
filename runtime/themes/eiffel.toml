@@ -65,7 +65,7 @@
 "diff.minus" = "diff_minus"
 "diff.plus" = "diff_plus"
 
-"ui.background" = { bg = "ui_background" }
+"ui.background" = { "ui_background" }
 #"ui.background.separator" = ""
 "ui.bufferline" = { fg = "ui_text_dim", bg = "ui_background_accent" }
 "ui.bufferline.active" = { fg = "ui_text", bg = "ui_background_accent" }

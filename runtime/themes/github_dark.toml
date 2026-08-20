@@ -42,7 +42,7 @@ label = "scale.red.3"
 "diff.minus" = "closed.fg"
 "diff.delta" = "attention.fg"
 
-"ui.background" = { bg = "canvas.default" }
+"ui.background" = { "canvas.default" }
 "ui.background.separator" = { fg = "fg.subtle" }
 "ui.linenr" = { fg = "fg.subtle" }
 "ui.linenr.selected" = { fg = "fg.default" }

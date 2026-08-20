@@ -56,7 +56,7 @@
 "diff.minus" = "red"
 
 # UI elements
-"ui.background" = { bg = "bg0" }
+"ui.background" = { "bg0" }
 "ui.background.separator" = "grey"
 
 "ui.cursor" = { fg = "bg0", bg = "cursor" }
