@@ -7,9 +7,9 @@ use helix_core::syntax::{self, HighlightEvent, Highlighter, OverlayHighlights};
 use helix_core::text_annotations::TextAnnotations;
 use helix_core::{visual_offset_from_block, Position, RopeSlice};
 use helix_stdx::rope::RopeSliceExt;
-use helix_view::editor::{WhitespaceConfig, WhitespaceRenderValue};
+use helix_view::editor::{RainbowIndentOptions, WhitespaceConfig, WhitespaceRenderValue};
 use helix_view::graphics::Rect;
-use helix_view::theme::Style;
+use helix_view::theme::{Modifier, Style};
 use helix_view::view::ViewPosition;
 use helix_view::{Document, Theme};
 use tui::buffer::Buffer as Surface;
@@ -46,6 +46,7 @@ pub fn render_document(
         Position::new(offset.vertical_offset, offset.horizontal_offset),
         viewport,
     );
+    let colorizer_enabled = doc.config.load().colorizer;
     render_text(
         &mut renderer,
         doc.text().slice(..),
@@ -56,7 +57,143 @@ pub fn render_document(
         overlay_highlights,
         theme,
         decorations,
+        colorizer_enabled,
     )
+}
+
+pub struct ColorizerHighlighter {
+    spans: std::vec::IntoIter<(std::ops::Range<usize>, Style)>,
+    current: Option<(std::ops::Range<usize>, Style)>,
+    pub pos: usize,
+    pub style: Style,
+}
+
+impl ColorizerHighlighter {
+    pub fn new(text: RopeSlice<'_>, start_char: usize, end_char: usize) -> Self {
+        let mut spans = Vec::new();
+        let slice_str = text.slice(start_char..end_char).to_string();
+        
+        use once_cell::sync::Lazy;
+        use regex::Regex;
+        use helix_view::graphics::Color;
+        
+        static HEX_COLOR_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)#([0-9a-f]{6}|[0-9a-f]{3})\b").unwrap());
+        static RGB_COLOR_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*(?:,\s*[0-9.]+\s*)?\)").unwrap());
+        static HSL_COLOR_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)hsla?\(\s*(\d{1,3})(?:deg)?\s*,\s*(\d{1,3})%?\s*,\s*(\d{1,3})%?\s*(?:,\s*[0-9.]+\s*)?\)").unwrap());
+
+        for mat in HEX_COLOR_RE.captures_iter(&slice_str) {
+            let m = mat.get(0).unwrap();
+            let hex = mat.get(1).unwrap().as_str();
+            let (r, g, b) = if hex.len() == 6 {
+                (
+                    u8::from_str_radix(&hex[0..2], 16).unwrap_or(0),
+                    u8::from_str_radix(&hex[2..4], 16).unwrap_or(0),
+                    u8::from_str_radix(&hex[4..6], 16).unwrap_or(0),
+                )
+            } else {
+                let r = u8::from_str_radix(&hex[0..1], 16).unwrap_or(0);
+                let g = u8::from_str_radix(&hex[1..2], 16).unwrap_or(0);
+                let b = u8::from_str_radix(&hex[2..3], 16).unwrap_or(0);
+                (r * 17, g * 17, b * 17)
+            };
+            let color = Color::Rgb(r, g, b);
+            let brightness = (r as f32 * 299.0 + g as f32 * 587.0 + b as f32 * 114.0) / 1000.0;
+            let fg = if brightness > 128.0 { Color::Black } else { Color::White };
+            let style = Style::default().bg(color).fg(fg);
+            
+            let start_char_local = slice_str[..m.start()].chars().count();
+            let end_char_local = start_char_local + m.as_str().chars().count();
+            
+            spans.push((start_char + start_char_local..start_char + end_char_local, style));
+        }
+
+        for mat in RGB_COLOR_RE.captures_iter(&slice_str) {
+            let m = mat.get(0).unwrap();
+            let r = mat.get(1).unwrap().as_str().parse::<u8>().unwrap_or(0);
+            let g = mat.get(2).unwrap().as_str().parse::<u8>().unwrap_or(0);
+            let b = mat.get(3).unwrap().as_str().parse::<u8>().unwrap_or(0);
+            
+            let color = Color::Rgb(r, g, b);
+            let brightness = (r as f32 * 299.0 + g as f32 * 587.0 + b as f32 * 114.0) / 1000.0;
+            let fg = if brightness > 128.0 { Color::Black } else { Color::White };
+            let style = Style::default().bg(color).fg(fg);
+            
+            let start_char_local = slice_str[..m.start()].chars().count();
+            let end_char_local = start_char_local + m.as_str().chars().count();
+            
+            spans.push((start_char + start_char_local..start_char + end_char_local, style));
+        }
+
+        for mat in HSL_COLOR_RE.captures_iter(&slice_str) {
+            let m = mat.get(0).unwrap();
+            let h = mat.get(1).unwrap().as_str().parse::<f32>().unwrap_or(0.0);
+            let s = mat.get(2).unwrap().as_str().parse::<f32>().unwrap_or(0.0);
+            let l = mat.get(3).unwrap().as_str().parse::<f32>().unwrap_or(0.0);
+            
+            let h_mod = h % 360.0;
+            let s_clamp = s.clamp(0.0, 100.0) / 100.0;
+            let l_clamp = l.clamp(0.0, 100.0) / 100.0;
+            let c = (1.0 - (2.0 * l_clamp - 1.0).abs()) * s_clamp;
+            let x = c * (1.0 - ((h_mod / 60.0) % 2.0 - 1.0).abs());
+            let m_light = l_clamp - c / 2.0;
+            let (r_f, g_f, b_f) = if h_mod < 60.0 {
+                (c, x, 0.0)
+            } else if h_mod < 120.0 {
+                (x, c, 0.0)
+            } else if h_mod < 180.0 {
+                (0.0, c, x)
+            } else if h_mod < 240.0 {
+                (0.0, x, c)
+            } else if h_mod < 300.0 {
+                (x, 0.0, c)
+            } else {
+                (c, 0.0, x)
+            };
+            
+            let r = ((r_f + m_light) * 255.0).round() as u8;
+            let g = ((g_f + m_light) * 255.0).round() as u8;
+            let b = ((b_f + m_light) * 255.0).round() as u8;
+
+            let color = Color::Rgb(r, g, b);
+            let brightness = (r as f32 * 299.0 + g as f32 * 587.0 + b as f32 * 114.0) / 1000.0;
+            let fg = if brightness > 128.0 { Color::Black } else { Color::White };
+            let style = Style::default().bg(color).fg(fg);
+            
+            let start_char_local = slice_str[..m.start()].chars().count();
+            let end_char_local = start_char_local + m.as_str().chars().count();
+            
+            spans.push((start_char + start_char_local..start_char + end_char_local, style));
+        }
+
+        spans.sort_by_key(|(range, _)| range.start);
+        
+        let mut spans = spans.into_iter();
+        let current = spans.next();
+        Self {
+            spans,
+            current,
+            pos: 0,
+            style: Style::default(),
+        }
+    }
+
+    pub fn advance(&mut self) {
+        if let Some((range, style)) = &self.current {
+            if self.pos < range.start {
+                self.style = Style::default();
+                self.pos = range.start;
+            } else if self.pos < range.end {
+                self.style = *style;
+                self.pos = range.end;
+            } else {
+                self.current = self.spans.next();
+                self.style = Style::default();
+            }
+        } else {
+            self.style = Style::default();
+            self.pos = usize::MAX;
+        }
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -70,6 +207,7 @@ pub fn render_text(
     overlay_highlights: Vec<syntax::OverlayHighlights>,
     theme: &Theme,
     mut decorations: DecorationManager,
+    colorizer_enabled: bool,
 ) {
     let row_off = visual_offset_from_block(text, anchor, anchor, text_fmt, text_annotations)
         .0
@@ -80,6 +218,16 @@ pub fn render_text(
     let mut syntax_highlighter =
         SyntaxHighlighter::new(syntax_highlighter, text, theme, renderer.text_style);
     let mut overlay_highlighter = OverlayHighlighter::new(overlay_highlights, theme);
+
+    let end_char = std::cmp::min(
+        anchor + renderer.viewport.height as usize * renderer.viewport.width as usize,
+        text.len_chars(),
+    );
+    let mut colorizer_highlighter = if colorizer_enabled {
+        Some(ColorizerHighlighter::new(text, anchor, end_char))
+    } else {
+        None
+    };
 
     let mut last_line_pos = LinePos {
         first_visual_line: false,
@@ -138,8 +286,13 @@ pub fn render_text(
         while grapheme.char_idx >= overlay_highlighter.pos {
             overlay_highlighter.advance();
         }
+        if let Some(colorizer) = &mut colorizer_highlighter {
+            while grapheme.char_idx >= colorizer.pos {
+                colorizer.advance();
+            }
+        }
 
-        let grapheme_style = if let GraphemeSource::VirtualText { highlight } = grapheme.source {
+        let mut grapheme_style = if let GraphemeSource::VirtualText { highlight } = grapheme.source {
             let mut style = renderer.text_style;
             if let Some(highlight) = highlight {
                 style = style.patch(theme.highlight(highlight));
@@ -154,6 +307,13 @@ pub fn render_text(
                 overlay_style: overlay_highlighter.style,
             }
         };
+
+        if let Some(colorizer) = &colorizer_highlighter {
+            if colorizer.style != Style::default() {
+                grapheme_style.overlay_style = grapheme_style.overlay_style.patch(colorizer.style);
+            }
+        }
+
         decorations.decorate_grapheme(renderer, &grapheme);
 
         let virt = grapheme.is_virtual();
@@ -179,6 +339,8 @@ pub struct TextRenderer<'a> {
     pub whitespace_style: Style,
     pub indent_guide_char: String,
     pub indent_guide_style: Style,
+    pub indent_guide_rainbow: RainbowIndentOptions,
+    pub theme: &'a Theme,
     pub newline: String,
     pub nbsp: String,
     pub nnbsp: String,
@@ -201,7 +363,7 @@ impl<'a> TextRenderer<'a> {
     pub fn new(
         surface: &'a mut Surface,
         doc: &Document,
-        theme: &Theme,
+        theme: &'a Theme,
         offset: Position,
         viewport: Rect,
     ) -> TextRenderer<'a> {
@@ -243,12 +405,19 @@ impl<'a> TextRenderer<'a> {
         };
 
         let text_style = theme.get("ui.text");
+        let basic_style = text_style.patch(
+            theme
+                .try_get("ui.virtual.indent-guide")
+                .unwrap_or_else(|| theme.get("ui.virtual.whitespace")),
+        );
 
         let indent_width = doc.indent_style.indent_width(tab_width) as u16;
 
         TextRenderer {
             surface,
             indent_guide_char: editor_config.indent_guides.character.into(),
+            indent_guide_rainbow: editor_config.indent_guides.rainbow_option.clone(),
+            theme,
             newline,
             nbsp,
             nnbsp,
@@ -260,11 +429,7 @@ impl<'a> TextRenderer<'a> {
             starting_indent: offset.col / indent_width as usize
                 + !offset.col.is_multiple_of(indent_width as usize) as usize
                 + editor_config.indent_guides.skip_levels as usize,
-            indent_guide_style: text_style.patch(
-                theme
-                    .try_get("ui.virtual.indent-guide")
-                    .unwrap_or_else(|| theme.get("ui.virtual.whitespace")),
-            ),
+            indent_guide_style: basic_style,
             text_style,
             draw_indent_guides: editor_config.indent_guides.render,
             viewport,
@@ -417,8 +582,25 @@ impl<'a> TextRenderer<'a> {
                 as u16;
             let y = self.viewport.y + row;
             debug_assert!(self.surface.in_bounds(x, y));
-            self.surface
-                .set_string(x, y, &self.indent_guide_char, self.indent_guide_style);
+            match self.indent_guide_rainbow {
+                RainbowIndentOptions::None => {
+                    self.surface
+                        .set_string(x, y, &self.indent_guide_char, self.indent_guide_style)
+                }
+                RainbowIndentOptions::Dim => {
+                    let new_style = self
+                        .indent_guide_style
+                        .patch(self.theme.get_rainbow(i))
+                        .add_modifier(Modifier::DIM);
+                    self.surface
+                        .set_string(x, y, &self.indent_guide_char, new_style);
+                }
+                RainbowIndentOptions::Normal => {
+                    let new_style = self.indent_guide_style.patch(self.theme.get_rainbow(i));
+                    self.surface
+                        .set_string(x, y, &self.indent_guide_char, new_style);
+                }
+            };
         }
     }
 

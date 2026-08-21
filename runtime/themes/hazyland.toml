@@ -42,7 +42,7 @@ tabstop = { modifiers = ["italic"], bg = "panel"}
 "diff.minus" = "red"
 "diff.delta" = "yellow"
 
-"ui.background" = { bg = "background" }
+"ui.background" = { "background" }
 "ui.background.separator" = { fg = "panel" }
 "ui.linenr" = { fg = "frame" }
 "ui.linenr.selected" = { fg = "text" }

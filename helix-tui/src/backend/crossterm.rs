@@ -234,6 +234,7 @@ where
         let mut underline_color = Color::Reset;
         let mut underline_style = UnderlineStyle::Reset;
         let mut modifier = Modifier::empty();
+        let mut link: Option<&'static str> = None;
         let mut last_pos: Option<(u16, u16)> = None;
         for (x, y, cell) in content {
             // Move the cursor if the previous location was not (x - 1, y)
@@ -277,8 +278,20 @@ where
                 queue!(self.buffer, SetAttribute(attr))?;
                 underline_style = new_underline_style;
             }
+            if cell.link != link {
+                if let Some(l) = cell.link {
+                    queue!(self.buffer, Print(format!("\x1b]8;;{}\x1b\\", l)))?;
+                } else {
+                    queue!(self.buffer, Print("\x1b]8;;\x1b\\"))?;
+                }
+                link = cell.link;
+            }
 
             queue!(self.buffer, Print(&cell.symbol))?;
+        }
+
+        if link.is_some() {
+            queue!(self.buffer, Print("\x1b]8;;\x1b\\"))?;
         }
 
         queue!(
@@ -329,6 +342,10 @@ where
 
     fn flush(&mut self) -> io::Result<()> {
         self.buffer.flush()
+    }
+
+    fn write_raw(&mut self, bytes: &[u8]) -> io::Result<()> {
+        self.buffer.write_all(bytes)
     }
 
     fn supports_true_color(&self) -> bool {

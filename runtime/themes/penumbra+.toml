@@ -50,7 +50,7 @@ error = "red"
 "diagnostic.unnecessary" = { modifiers = ["dim"] }
 "diagnostic.deprecated" = { modifiers = ["crossed_out"] }
 
-"ui.background" = { bg = "shade" }
+"ui.background" = { "shade" }
 "ui.background.separator" = "sky"
 
 "ui.cursor" = { modifiers = ["reversed"] }

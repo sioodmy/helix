@@ -3,7 +3,7 @@
 # This theme is a port of naysayer-theme.el:
 #    https://github.com/nickav/naysayer-theme.el
 
-"ui.background" = { bg = "bg" }
+"ui.background" = { "bg" }
 "ui.text" = "text"
 "ui.linenr" = { bg = "bg", fg = "line-fg" }
 "ui.linenr.selected" = { bg = "highlight-line", fg = "line-fg" }

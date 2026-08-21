@@ -49,7 +49,7 @@
 "markup.raw" = "neon_orange"
 
 # UI INTERFACE
-"ui.background" = { bg = "deep_black" }
+"ui.background" = { "deep_black" }
 "ui.cursor" = { bg = "electric_yellow", fg = "deep_black" }
 "ui.cursor.primary" = { bg = "electric_yellow", fg = "deep_black" }
 "ui.cursor.match" = { bg = "hot_magenta", fg = "deep_black" }

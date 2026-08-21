@@ -4,7 +4,7 @@
 
 inherits = "seoul256-light"
 
-"ui.background" = { bg = "gray11" }
+"ui.background" = { "gray11" }
 "ui.cursor.match" = { bg = "gray10", modifiers = ["underlined"] }
 "ui.gutter" = { bg = "white1" }
 "ui.cursorline.primary" = { bg = "gray12" }

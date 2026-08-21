@@ -27,7 +27,7 @@ tag = "red213"
 "diff.minus" = "blue145"
 "diff.delta" = "blue173"
 
-"ui.background" = { fg = "blue196", bg = "blue34" }
+"ui.background" = { fg = "blue196" }
 "ui.gutter" = "blue56"
 "ui.gutter.selected" = { fg ="blue56", bg = "blue46" }
 "ui.linenr" = "blue89"

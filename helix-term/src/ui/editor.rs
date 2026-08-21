@@ -35,6 +35,8 @@ use std::{mem::take, num::NonZeroUsize, ops, path::PathBuf, rc::Rc};
 
 use tui::{buffer::Buffer as Surface, text::Span};
 
+use super::context::{self, StickyNode};
+
 pub struct EditorView {
     pub keymaps: Keymaps,
     on_next_key: Option<(OnKeyCallback, OnKeyCallbackKind)>,
@@ -42,6 +44,7 @@ pub struct EditorView {
     pub(crate) last_insert: (commands::MappableCommand, Vec<InsertEvent>),
     pub(crate) completion: Option<Completion>,
     spinners: ProgressSpinners,
+    sticky_nodes: Option<Vec<StickyNode>>,
     /// Tracks if the terminal window is focused by reaction to terminal focus events
     terminal_focused: bool,
 }
@@ -66,6 +69,7 @@ impl EditorView {
             last_insert: (commands::MappableCommand::normal_mode, Vec::new()),
             completion: None,
             spinners: ProgressSpinners::default(),
+            sticky_nodes: None,
             terminal_focused: true,
         }
     }
@@ -75,7 +79,7 @@ impl EditorView {
     }
 
     pub fn render_view(
-        &self,
+        &mut self,
         editor: &Editor,
         doc: &Document,
         view: &View,
@@ -83,8 +87,17 @@ impl EditorView {
         surface: &mut Surface,
         is_focused: bool,
     ) {
-        let inner = view.inner_area(doc);
+        let mut inner = view.inner_area(doc);
         let area = view.area;
+        if editor.zen_mode {
+            let max_width = 120;
+            let mut new_inner = view.area;
+            let text_width = std::cmp::min(new_inner.width, max_width);
+            let offset = new_inner.width.saturating_sub(text_width) / 2;
+            new_inner.x += offset;
+            new_inner.width = text_width;
+            inner = new_inner;
+        }
         let theme = &editor.theme;
         let config = editor.config();
         let loader = editor.syn_loader.load();
@@ -167,31 +180,31 @@ impl EditorView {
             }
         }
 
-        let gutter_overflow = view.gutter_offset(doc) == 0;
-        if !gutter_overflow {
-            Self::render_gutter(
-                editor,
-                doc,
-                view,
-                view.area,
-                theme,
-                is_focused & self.terminal_focused,
-                &mut decorations,
-            );
-        }
-
-        Self::render_rulers(editor, doc, view, inner, surface, theme);
-
         let primary_cursor = doc
             .selection(view.id)
             .primary()
             .cursor(doc.text().slice(..));
+
         if is_focused {
             decorations.add_decoration(text_decorations::Cursor {
                 cache: &editor.cursor_cache,
                 primary_cursor,
             });
         }
+
+        let gutter_overflow = view.gutter_offset(doc) == 0;
+        if !gutter_overflow && !editor.zen_mode {
+            Self::render_gutter(
+                editor,
+                doc,
+                self.sticky_nodes.clone(),
+                view,
+                theme,
+                is_focused & self.terminal_focused,
+                &mut decorations,
+            );
+        }
+
         let width = view.inner_width(doc);
         let config = doc.config.load();
         let enable_cursor_line = view
@@ -205,6 +218,8 @@ impl EditorView {
             inline_diagnostic_config,
             config.end_of_line_diagnostics,
         ));
+
+
         render_document(
             surface,
             inner,
@@ -216,6 +231,23 @@ impl EditorView {
             theme,
             decorations,
         );
+
+        if config.sticky_context.enable {
+            self.sticky_nodes = context::calculate_sticky_nodes(
+                self.sticky_nodes.clone(),
+                doc,
+                view,
+                &config,
+                editor.cursor_cache.get(view, doc).as_ref(),
+                &loader,
+            );
+
+            context::render_sticky_context(doc, view, surface, self.sticky_nodes.as_ref(), theme, &loader);
+        }
+
+        if !editor.zen_mode {
+            Self::render_rulers(editor, doc, view, inner, surface, theme);
+        }
 
         // if we're not at the edge of the screen, draw a right border
         if viewport.right() != view.area.right() {
@@ -235,15 +267,17 @@ impl EditorView {
             Self::render_diagnostics(doc, view, inner, surface, theme);
         }
 
-        let statusline_area = view
-            .area
-            .clip_top(view.area.height.saturating_sub(1))
-            .clip_bottom(1); // -1 from bottom to remove commandline
+        if !editor.zen_mode {
+            let statusline_area = view
+                .area
+                .clip_top(view.area.height.saturating_sub(1))
+                .clip_bottom(1); // -1 from bottom to remove commandline
 
-        let mut context =
-            statusline::RenderContext::new(editor, doc, view, is_focused, &self.spinners);
+            let mut context =
+                statusline::RenderContext::new(editor, doc, view, is_focused, &self.spinners);
 
-        statusline::render(&mut context, statusline_area, surface);
+            statusline::render(&mut context, statusline_area, surface);
+        }
     }
 
     pub fn render_rulers(
@@ -556,7 +590,6 @@ impl EditorView {
         let base_primary_cursor_scope = theme
             .find_highlight("ui.cursor.primary")
             .unwrap_or(base_cursor_scope);
-
         let cursor_scope = match mode {
             Mode::Insert => theme.find_highlight_exact("ui.cursor.insert"),
             Mode::Select => theme.find_highlight_exact("ui.cursor.select"),
@@ -659,6 +692,29 @@ impl EditorView {
         Some(OverlayHighlights::Homogeneous { highlight, ranges })
     }
 
+fn get_file_icon(fname: &str) -> &'static str {
+    if let Some(ext) = fname.rsplit('.').next() {
+        match ext {
+            "rs" => "󱘎",
+            "js" => "󰌧",
+            "ts" | "tsx" => "󰛦",
+            "json" => "󰘦",
+            "md" | "markdown" => "",
+            "toml" => "󰅩",
+            "yaml" | "yml" => "󰆧",
+            "html" => "󰌝",
+            "css" => "󰌜",
+            "py" => "󰌠",
+            "go" => "󰟓",
+            "c" | "cpp" | "h" | "hpp" => "󰙲",
+            "sh" | "bash" => "󰆍",
+            _ => "󰈙",
+        }
+    } else {
+        "󰈙"
+    }
+}
+
     /// Render bufferline at the top
     pub fn render_bufferline(editor: &Editor, viewport: Rect, surface: &mut Surface) {
         let scratch = PathBuf::from(SCRATCH_BUFFER_NAME); // default filename to use for scratch buffer
@@ -698,7 +754,13 @@ impl EditorView {
                 bufferline_inactive
             };
 
-            let text = format!(" {}{} ", fname, if doc.is_modified() { "[+]" } else { "" });
+            let icon = Self::get_file_icon(fname);
+            let mod_indicator = if doc.is_modified() { " ●" } else { "" };
+            let text = if current_doc == doc.id() {
+                format!(" ▎ {}  {}{} ", icon, fname, mod_indicator)
+            } else {
+                format!("   {}  {}{} ", icon, fname, mod_indicator)
+            };
             let used_width = viewport.x.saturating_sub(x);
             let rem_width = surface.area.width.saturating_sub(used_width);
 
@@ -715,8 +777,8 @@ impl EditorView {
     pub fn render_gutter<'d>(
         editor: &'d Editor,
         doc: &'d Document,
+        context: Option<Vec<StickyNode>>,
         view: &View,
-        viewport: Rect,
         theme: &Theme,
         is_focused: bool,
         decoration_manager: &mut DecorationManager<'d>,
@@ -729,18 +791,24 @@ impl EditorView {
             .collect();
 
         let mut offset = 0;
+        let viewport = view.area;
 
         let gutter_style = theme.get("ui.gutter");
         let gutter_selected_style = theme.get("ui.gutter.selected");
         let gutter_style_virtual = theme.get("ui.gutter.virtual");
         let gutter_selected_style_virtual = theme.get("ui.gutter.selected.virtual");
 
+        let context_rc = Rc::new(context);
+
         for gutter_type in view.gutters() {
             let mut gutter = gutter_type.style(editor, doc, view, theme, is_focused);
             let width = gutter_type.width(view, doc);
             // avoid lots of small allocations by reusing a text buffer for each line
-            let mut text = String::with_capacity(width);
+            let mut text_to_draw = String::with_capacity(width);
             let cursors = cursors.clone();
+
+            let context_instance = context_rc.clone();
+
             let gutter_decoration = move |renderer: &mut TextRenderer, pos: LinePos| {
                 // TODO handle softwrap in gutters
                 let selected = cursors.contains(&pos.doc_line);
@@ -754,10 +822,22 @@ impl EditorView {
                     (true, false) => gutter_selected_style_virtual,
                 };
 
-                if let Some(style) =
-                    gutter(pos.doc_line, selected, pos.first_visual_line, &mut text)
+                let mut doc_line = pos.doc_line;
+                if let Some(current_context) = context_instance
+                    .as_ref()
+                    .as_ref()
+                    .and_then(|c| c.iter().find(|n| n.visual_line == pos.visual_line))
                 {
-                    renderer.set_stringn(x, y, &text, width, gutter_style.patch(style));
+                    doc_line = match current_context.indicator {
+                        Some(_) => return,
+                        None => current_context.line,
+                    };
+                }
+
+                if let Some(style) =
+                    gutter(doc_line, selected, pos.first_visual_line, &mut text_to_draw)
+                {
+                    renderer.set_stringn(x, y, &text_to_draw, width, gutter_style.patch(style));
                 } else {
                     renderer.set_style(
                         Rect {
@@ -769,7 +849,7 @@ impl EditorView {
                         gutter_style,
                     );
                 }
-                text.clear();
+                text_to_draw.clear();
             };
             decoration_manager.add_decoration(gutter_decoration);
 
@@ -1324,7 +1404,7 @@ impl EditorView {
                 }
 
                 let offset = config.scroll_lines.unsigned_abs();
-                commands::scroll(cxt, offset, direction, false);
+                commands::scroll(cxt.editor, offset, direction, false);
 
                 cxt.editor.tree.focus = current_view;
                 cxt.editor.ensure_cursor_in_view(current_view);
@@ -1622,11 +1702,14 @@ impl Component for EditorView {
 
         // check if bufferline should be rendered
         use helix_view::editor::BufferLine;
-        let use_bufferline = match config.bufferline {
+        let mut use_bufferline = match config.bufferline {
             BufferLine::Always => true,
             BufferLine::Multiple if cx.editor.documents.len() > 1 => true,
             _ => false,
         };
+        if cx.editor.zen_mode {
+            use_bufferline = false;
+        }
 
         // -1 for commandline and -1 for bufferline
         let mut editor_area = area.clip_bottom(1);

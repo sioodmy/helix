@@ -24,7 +24,7 @@ diagnostic = "cool-sky"
  
 # UI ==============================
 
-"ui.background" = { fg = "orchid", bg = "midnight" }
+"ui.background" = { fg = "orchid" }
 "ui.help" = {fg = "neon-cyan", bg = "midnight"}
 "ui.text" = {fg = "neon-cyan", bg = "midnight"}
 "ui.window" = "orchid"

@@ -173,22 +173,39 @@ where
         Mode::Select => &modenames.select,
         Mode::Normal => &modenames.normal,
     };
+    let icon = match context.editor.mode() {
+        Mode::Normal => "☭",
+        Mode::Insert => "",
+        Mode::Select => "󰒉",
+    };
     let content = if visible {
-        format!(" {mode_str} ")
+        format!(" {} {} ", icon, mode_str)
     } else {
         // If not focused, explicitly leave an empty space instead of returning None.
-        " ".repeat(mode_str.width() + 2)
+        " ".repeat(mode_str.width() + 4)
     };
-    let style = if visible && config.color_modes {
+    let mut style = if visible && config.color_modes {
         match context.editor.mode() {
             Mode::Insert => context.editor.theme.get("ui.statusline.insert"),
             Mode::Select => context.editor.theme.get("ui.statusline.select"),
             Mode::Normal => context.editor.theme.get("ui.statusline.normal"),
         }
     } else {
-        Style::default()
+        context.editor.theme.get("ui.statusline.inactive")
     };
+    
+    let base_style = context.editor.theme.get("ui.statusline");
+    if style.bg.is_none() || style.bg == base_style.bg {
+        style.bg = base_style.fg;
+        style.fg = base_style.bg;
+    }
+
+    let mut edge_style = Style::default();
+    edge_style.fg = style.bg.or(style.fg);
+
+    write(context, Span::styled("", edge_style));
     write(context, Span::styled(content, style));
+    write(context, Span::styled(" ", edge_style));
 }
 
 fn render_lsp_spinner<'a, F>(context: &mut RenderContext<'a>, write: F)
@@ -371,10 +388,21 @@ where
     F: Fn(&mut RenderContext<'a>, Span<'a>) + Copy,
 {
     let position = get_position(context);
-    write(
-        context,
-        format!(" {}:{} ", position.row + 1, position.col + 1).into(),
-    );
+    let title = format!("  {}:{} ", position.row + 1, position.col + 1);
+
+    let mut style = context.editor.theme.get("ui.statusline.select");
+    let base_style = context.editor.theme.get("ui.statusline");
+    if style.bg.is_none() || style.bg == base_style.bg {
+        style.bg = base_style.fg;
+        style.fg = base_style.bg;
+    }
+
+    let mut edge_style = Style::default();
+    edge_style.fg = style.bg.or(style.fg);
+
+    write(context, Span::styled("", edge_style));
+    write(context, Span::styled(title, style));
+    write(context, Span::styled(" ", edge_style));
 }
 
 fn render_total_line_numbers<'a, F>(context: &mut RenderContext<'a>, write: F)
@@ -453,10 +481,22 @@ where
             .as_ref()
             .map(|p| p.to_string_lossy())
             .unwrap_or_else(|| SCRATCH_BUFFER_NAME.into());
-        format!(" {} ", path)
+        format!(" 󰈔 {} ", path)
     };
 
-    write(context, title.into());
+    let base_style = context.editor.theme.get("ui.statusline");
+    let mut style = base_style;
+    if style.bg.is_none() || style.bg == base_style.bg {
+        style.bg = base_style.fg;
+        style.fg = base_style.bg;
+    }
+
+    let mut edge_style = Style::default();
+    edge_style.fg = style.bg.or(style.fg);
+
+    write(context, Span::styled("", edge_style));
+    write(context, Span::styled(title, style));
+    write(context, Span::styled(" ", edge_style));
 }
 
 fn render_file_absolute_path<'a, F>(context: &mut RenderContext<'a>, write: F)
@@ -537,13 +577,24 @@ fn render_version_control<'a, F>(context: &mut RenderContext<'a>, write: F)
 where
     F: Fn(&mut RenderContext<'a>, Span<'a>) + Copy,
 {
-    let head = context
-        .doc
-        .version_control_head()
-        .unwrap_or_default()
-        .to_string();
+    if let Some(head) = context.doc.version_control_head() {
+        if !head.is_empty() {
+            let title = format!("  {} ", head);
+            let mut style = context.editor.theme.get("ui.statusline.insert");
+            let base_style = context.editor.theme.get("ui.statusline");
+            if style.bg.is_none() || style.bg == base_style.bg {
+                style.bg = base_style.fg;
+                style.fg = base_style.bg;
+            }
 
-    write(context, head.into());
+            let mut edge_style = Style::default();
+            edge_style.fg = style.bg.or(style.fg);
+
+            write(context, Span::styled("", edge_style));
+            write(context, Span::styled(title, style));
+            write(context, Span::styled(" ", edge_style));
+        }
+    }
 }
 
 fn render_register<'a, F>(context: &mut RenderContext<'a>, write: F)

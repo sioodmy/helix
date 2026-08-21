@@ -58,7 +58,7 @@
 
 # User Interface
 
-"ui.background" = { bg = "bg", fg = "text" }
+"ui.background" = { "bg", fg = "text" }
 "ui.text" = { fg = "text" }
 "ui.text.directory" = { fg = "blue" }
 

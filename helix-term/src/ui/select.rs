@@ -57,7 +57,7 @@ impl<T: Item> Component for Select<T> {
     }
 
     fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
-        const BLOCK: Block<'_> = Block::bordered();
+        const BLOCK: Block<'_> = Block::bordered().border_type(tui::widgets::BorderType::Rounded);
 
         // +---------------------+
         // | message             |

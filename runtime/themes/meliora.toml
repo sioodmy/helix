@@ -29,7 +29,7 @@
 "ui.linenr.selected" = { fg = "dark_white", bg = "dark_light_black"}
 "ui.gutter" = { bg = "dark_black" }
 
-"ui.background" = { fg = "light_grey", bg = "black" }
+"ui.background" = { fg = "light_grey" }
 "ui.background.separator" = { fg = "dark_grey" }
 "ui.help" = { fg = "white", bg = "light_black3" }
 "ui.menu" = { fg = "dark_white", bg = "light_black" }

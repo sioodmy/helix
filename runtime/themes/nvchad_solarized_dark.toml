@@ -87,7 +87,7 @@
 "diff.delta" = { fg = "yellow" }
 "diff.minus" = { fg = "red" }
 
-"ui.background" = { bg = "base03" }
+"ui.background" = { "base03" }
 
 "ui.virtual.whitespace" = { fg = "base01" }
 "ui.virtual.inlay-hint" = { fg = "#586e75", modifiers = ["italic"] }

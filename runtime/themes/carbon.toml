@@ -86,7 +86,7 @@
 "diff.delta.moved" = "purple40"
 
 # UI Elements
-"ui.background" = { fg = "gray70", bg = "gray10" }
+"ui.background" = { fg = "gray70" }
 "ui.background.separator" = { fg = "gray30" }
 
 "ui.cursor" = { fg = "gray10", bg = "blue50" }

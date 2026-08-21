@@ -61,7 +61,7 @@
 "tag.attribute" = { fg = "purple" }
 "text" = { fg = "background_fg" }
 "type" = { fg = "blue" }
-"ui.background" = { fg = "background_fg", bg = "background_bg" }
+"ui.background" = { fg = "background_fg" }
 "ui.background.separator" = { fg = "comment_fg" }
 "ui.bufferline.active" = { fg = "pale" }
 "ui.cursor.match" = { fg = "background_fg", bg = "matchparen_bg" }

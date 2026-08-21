@@ -64,7 +64,7 @@
 "diff.minus" = "bright_red"
 "diff.delta" = "bright_cyan"
 
-"ui.background" = { bg = "bg" }
+"ui.background" = { "bg" }
 "ui.background.separator" = { fg = "fg" }
 
 "ui.linenr" = { fg = "gray04" }

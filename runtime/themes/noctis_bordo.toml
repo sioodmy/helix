@@ -23,7 +23,7 @@
 "variable.other.member" = "base08"
 "special" = "base0D"
 
-"ui.background" = { bg = "base00" }
+"ui.background" = { "base00" }
 "ui.virtual" = "base03"
 "ui.virtual.ruler" = { bg = "base01" }
 "ui.menu" = { fg = "base05", bg = "base01" }

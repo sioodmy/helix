@@ -1,6 +1,6 @@
 
 # Interface colors
-"ui.background" = { bg = "background" }
+"ui.background" = { "background" }
 "ui.background.separator" = { fg = "muted" }
 "ui.cursor" = { fg = "background", bg = "cursor" }
 "ui.cursor.normal" = { fg = "background", bg = "cursor" }

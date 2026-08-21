@@ -29,7 +29,7 @@ inherits = "seoul256-dark"
 "hint" = { fg = "blue", modifiers = ["bold"] }
 "warning" = { fg = "yellow5", modifiers = ["bold"] }
 
-"ui.background" = { bg = "white1" }
+"ui.background" = { "white1" }
 "ui.cursor" = { fg = "gray4", modifiers = ["reversed"] }
 "ui.cursor.primary" = { fg = "gray4", modifiers = ["reversed"] }
 "ui.cursor.match" = { bg = "gray13", modifiers = ["underlined"] }

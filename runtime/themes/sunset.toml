@@ -82,7 +82,7 @@ special = "wine"
 
 # User interface
 # ----------------------------------------------------------------
-"ui.background" = { fg = "text", bg = "base" }
+"ui.background" = { fg = "text" }
 
 "ui.cursor" = { fg = "base", bg = "cmnt" }
 "ui.cursor.primary.normal" = { fg = "base", bg = "text" }

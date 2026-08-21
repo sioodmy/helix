@@ -38,7 +38,7 @@ label = "label"
 "diff.minus" = "#f22c86"
 "diff.delta" = "info"
 
-"ui.background" = { bg = "black" }
+"ui.background" = { "black" }
 "ui.background.separator" = { fg = "window_color" }
 "ui.linenr" = { fg = "window_color" }
 "ui.linenr.selected" = { fg = "light_blue" }

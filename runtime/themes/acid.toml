@@ -45,7 +45,7 @@
 "diff.delta" = "yellow"
 
 # Interface
-"ui.background" = { bg = "background" }
+"ui.background" = { "background" }
 "ui.cursor" = { fg = "background", bg = "cyan" }
 "ui.cursor.primary" = { fg = "background", bg = "orange" }
 "ui.cursor.match" = { fg = "orange", modifiers = ["underlined"] }

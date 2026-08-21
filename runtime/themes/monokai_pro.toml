@@ -14,7 +14,7 @@
 "hint" = "base8"
 
 # background color
-"ui.background" = { bg = "base2" }
+"ui.background" = { "base2" }
 
 # status bars, panels, modals, autocompletion
 "ui.statusline" = { fg = "base8", bg = "base4" }

@@ -63,7 +63,7 @@
 "diff.delta" = "blue"
 "diff.minus" = "red"
 
-"ui.background" = { bg = "bg0" }
+"ui.background" = { "bg0" }
 "ui.background.separator" = "grey0"
 "ui.cursor" = { fg = "bg1", bg = "grey2" }
 "ui.cursor.insert" = { fg = "bg0", bg = "grey1" }

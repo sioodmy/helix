@@ -698,7 +698,7 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
         let background = cx.editor.theme.get("ui.background");
         surface.clear_with(area, background);
 
-        const BLOCK: Block<'_> = Block::bordered();
+        const BLOCK: Block<'_> = Block::bordered().border_type(BorderType::Rounded);
 
         // calculate the inner area inside the box
         let inner = BLOCK.inner(area);
@@ -887,7 +887,7 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
         let directory = cx.editor.theme.get("ui.text.directory");
         surface.clear_with(area, background);
 
-        const BLOCK: Block<'_> = Block::bordered();
+        const BLOCK: Block<'_> = Block::bordered().border_type(BorderType::Rounded);
 
         // calculate the inner area inside the box
         let inner = BLOCK.inner(area);
@@ -1170,7 +1170,7 @@ impl<I: 'static + Send + Sync, D: 'static + Send + Sync> Component for Picker<I,
     }
 
     fn cursor(&self, area: Rect, editor: &Editor) -> (Option<Position>, CursorKind) {
-        let block = Block::bordered();
+        let block = Block::bordered().border_type(BorderType::Rounded);
         // calculate the inner area inside the box
         let inner = block.inner(area);
 

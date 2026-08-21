@@ -53,7 +53,7 @@
 "warning" = { fg = "yellow", modifiers = ["bold"] }
 "error" = { fg = "red", modifiers = ["bold"] }
 
-"ui.background" = { bg = "gray4" }
+"ui.background" = { "gray4" }
 "ui.gutter" = { bg = "gray5" }
 "ui.gutter.selected" = { bg = "gray3" }
 "ui.virtual" = { fg = "gray6" }

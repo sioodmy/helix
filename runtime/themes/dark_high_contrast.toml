@@ -1,7 +1,7 @@
 # GreasySlug : dark high contrast <9619abgoni@gmail.com>
 
 # Interface
-"ui.background" = { bg = "black" }
+"ui.background" = { "black" }
 "ui.window" = { fg = "aqua" }
 "special" = "orange"                           # file picker fuzzy match
 "ui.background.separator" = { fg = "white" }

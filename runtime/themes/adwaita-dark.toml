@@ -62,7 +62,7 @@
 "diff.delta" = "orange_3"
 "diff.delta.moved" = "orange_2"
 
-"ui.background" = { fg = "light_4", bg = "libadwaita_dark" }
+"ui.background" = { fg = "light_4" }
 "ui.background.separator" = { fg = "split_and_borders", bg = "libadwaita_dark" }
 "ui.cursor" = { fg = "libadwaita_dark", bg = "light_7" }
 "ui.cursor.normal" = { fg = "libadwaita_dark", bg = "light_7" }

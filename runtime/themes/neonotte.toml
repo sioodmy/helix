@@ -56,7 +56,7 @@
 
 # User Interface
 # --------------
-"ui.background" = { fg = "fg", bg = "bg" }
+"ui.background" = { fg = "fg" }
 
 "ui.linenr" = { fg = "bg_highlight" }
 "ui.linenr.selected" = { fg = "indigo" }

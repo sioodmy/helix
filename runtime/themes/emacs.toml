@@ -44,7 +44,7 @@
 "markup.raw.inline" = { fg = "dark_cyan" }
 "markup.raw.block" = { fg = "dark_cyan" }
 
-"ui.background" = { fg = "black", bg = "white" }
+"ui.background" = { fg = "black" }
 "ui.background.separator" = { fg = "black", bg = "white" }
 "ui.cursor" = { fg = "white", bg = "gray70" }
 "ui.cursor.primary" = { fg = "white", bg = "black" }

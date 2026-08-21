@@ -20,7 +20,7 @@
 "diff.delta" = { fg = "orange" }
 "diff.minus" = { fg = "red" }
 
-"ui.background" = { fg = "foreground", bg = "background" }
+"ui.background" = { fg = "foreground" }
 "ui.cursor" =  { fg = "background", bg = "orange", modifiers = ["dim"] }
 "ui.cursor.match" = { fg = "green", modifiers = ["underlined"] }
 "ui.cursor.primary" = { fg = "background", bg = "cyan", modifiers = ["dim"] }

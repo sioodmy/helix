@@ -408,6 +408,19 @@ impl MappableCommand {
         file_explorer_in_current_directory, "Open file explorer at current working directory",
         code_action, "Perform code action",
         buffer_picker, "Open buffer picker",
+        harpoon_add, "Add current file to harpoon",
+        harpoon_remove, "Remove current file from harpoon",
+        harpoon_picker, "Open harpoon picker",
+        harpoon_nav_1, "Navigate to harpoon index 1",
+        harpoon_nav_2, "Navigate to harpoon index 2",
+        harpoon_nav_3, "Navigate to harpoon index 3",
+        harpoon_nav_4, "Navigate to harpoon index 4",
+        harpoon_nav_5, "Navigate to harpoon index 5",
+        harpoon_nav_6, "Navigate to harpoon index 6",
+        harpoon_nav_7, "Navigate to harpoon index 7",
+        harpoon_nav_8, "Navigate to harpoon index 8",
+        harpoon_nav_9, "Navigate to harpoon index 9",
+        toggle_zen_mode, "Toggle Zen Mode",
         jumplist_picker, "Open jumplist picker",
         symbol_picker, "Open symbol picker",
         syntax_symbol_picker, "Open symbol picker from syntax information",
@@ -616,6 +629,7 @@ impl MappableCommand {
         goto_prev_tabstop, "Goto next snippet placeholder",
         rotate_selections_first, "Make the first selection your primary one",
         rotate_selections_last, "Make the last selection your primary one",
+
     );
 }
 
@@ -1928,10 +1942,10 @@ fn switch_to_lowercase(cx: &mut Context) {
     });
 }
 
-pub fn scroll(cx: &mut Context, offset: usize, direction: Direction, sync_cursor: bool) {
+pub fn scroll(editor: &mut Editor, offset: usize, direction: Direction, sync_cursor: bool) {
     use Direction::*;
-    let config = cx.editor.config();
-    let (view, doc) = current!(cx.editor);
+    let config = editor.config();
+    let (view, doc) = current!(editor);
     let mut view_offset = doc.view_offset(view.id);
 
     let range = doc.selection(view.id).primary();
@@ -1964,7 +1978,7 @@ pub fn scroll(cx: &mut Context, offset: usize, direction: Direction, sync_cursor
     let mut annotations = view.text_annotations(&*doc, None);
 
     if sync_cursor {
-        let movement = match cx.editor.mode {
+        let movement = match editor.mode {
             Mode::Select => Movement::Extend,
             _ => Movement::Move,
         };
@@ -2023,7 +2037,7 @@ pub fn scroll(cx: &mut Context, offset: usize, direction: Direction, sync_cursor
         }
     }
 
-    let anchor = if cx.editor.mode == Mode::Select {
+    let anchor = if editor.mode == Mode::Select {
         range.anchor
     } else {
         head
@@ -2041,49 +2055,80 @@ pub fn scroll(cx: &mut Context, offset: usize, direction: Direction, sync_cursor
 fn page_up(cx: &mut Context) {
     let view = view!(cx.editor);
     let offset = view.inner_height();
-    scroll(cx, offset, Direction::Backward, false);
+    scroll(cx.editor, offset, Direction::Backward, false);
 }
 
 fn page_down(cx: &mut Context) {
     let view = view!(cx.editor);
     let offset = view.inner_height();
-    scroll(cx, offset, Direction::Forward, false);
+    scroll(cx.editor, offset, Direction::Forward, false);
 }
 
 fn half_page_up(cx: &mut Context) {
     let view = view!(cx.editor);
     let offset = view.inner_height() / 2;
-    scroll(cx, offset, Direction::Backward, false);
+    scroll(cx.editor, offset, Direction::Backward, false);
 }
 
 fn half_page_down(cx: &mut Context) {
     let view = view!(cx.editor);
     let offset = view.inner_height() / 2;
-    scroll(cx, offset, Direction::Forward, false);
+    scroll(cx.editor, offset, Direction::Forward, false);
+}
+
+static PENDING_SCROLL: std::sync::atomic::AtomicIsize = std::sync::atomic::AtomicIsize::new(0);
+
+fn smooth_scroll(offset: isize) {
+    use std::sync::atomic::Ordering;
+    let current = PENDING_SCROLL.load(Ordering::SeqCst);
+    if current == 0 {
+        PENDING_SCROLL.store(offset, Ordering::SeqCst);
+        tokio::spawn(async move {
+            loop {
+                let remaining = PENDING_SCROLL.load(Ordering::SeqCst);
+                if remaining == 0 { break; }
+                
+                // Determine step size to make it smooth (accelerates/decelerates based on remaining)
+                let step_mag = (remaining.abs() / 4).max(1).min(3);
+                let step = if remaining > 0 { step_mag } else { -step_mag };
+                
+                crate::job::dispatch(move |editor, _| {
+                    let dir = if step > 0 { Direction::Forward } else { Direction::Backward };
+                    crate::commands::scroll(editor, step.unsigned_abs() as usize, dir, true);
+                }).await;
+                
+                PENDING_SCROLL.fetch_sub(step, Ordering::SeqCst);
+                
+                tokio::time::sleep(std::time::Duration::from_millis(16)).await;
+            }
+        });
+    } else {
+        PENDING_SCROLL.fetch_add(offset, Ordering::SeqCst);
+    }
 }
 
 fn page_cursor_up(cx: &mut Context) {
     let view = view!(cx.editor);
     let offset = view.inner_height();
-    scroll(cx, offset, Direction::Backward, true);
+    smooth_scroll(-(offset as isize));
 }
 
 fn page_cursor_down(cx: &mut Context) {
     let view = view!(cx.editor);
     let offset = view.inner_height();
-    scroll(cx, offset, Direction::Forward, true);
+    smooth_scroll(offset as isize);
 }
 
 fn page_cursor_half_up(cx: &mut Context) {
     let view = view!(cx.editor);
     let offset = view.inner_height() / 2;
-    scroll(cx, offset, Direction::Backward, true);
+    smooth_scroll(-(offset as isize));
 }
 
 fn page_cursor_half_down(cx: &mut Context) {
     let view = view!(cx.editor);
     let offset = view.inner_height() / 2;
-    scroll(cx, offset, Direction::Forward, true);
+    smooth_scroll(offset as isize);
 }
 
 #[allow(deprecated)]
@@ -2561,7 +2606,7 @@ fn make_search_word_bounded(cx: &mut Context) {
     }
 }
 
-fn global_search(cx: &mut Context) {
+pub fn global_search(cx: &mut Context) {
     #[derive(Debug)]
     struct FileResult<'a> {
         path: Cow<'a, Path>,
@@ -3221,7 +3266,7 @@ fn file_explorer(cx: &mut Context) {
         return;
     }
 
-    if let Ok(picker) = ui::file_explorer(root, cx.editor) {
+    if let Ok(picker) = ui::file_browser::file_browser(root, cx.editor) {
         cx.push_layer(Box::new(overlaid(picker)));
     }
 }
@@ -3248,7 +3293,7 @@ fn file_explorer_in_current_buffer_directory(cx: &mut Context) {
         }
     };
 
-    if let Ok(picker) = ui::file_explorer(path, cx.editor) {
+    if let Ok(picker) = ui::file_browser::file_browser(path, cx.editor) {
         cx.push_layer(Box::new(overlaid(picker)));
     }
 }
@@ -3261,7 +3306,7 @@ fn file_explorer_in_current_directory(cx: &mut Context) {
         return;
     }
 
-    if let Ok(picker) = ui::file_explorer(cwd, cx.editor) {
+    if let Ok(picker) = ui::file_browser::file_browser(cwd, cx.editor) {
         cx.push_layer(Box::new(overlaid(picker)));
     }
 }
@@ -3390,6 +3435,92 @@ fn buffer_picker(cx: &mut Context) {
     });
     cx.push_layer(Box::new(overlaid(picker)));
 }
+
+fn harpoon_add(cx: &mut Context) {
+    let doc_path = doc!(cx.editor).path().map(|p| p.to_path_buf());
+    if let Some(path) = doc_path {
+        if !cx.editor.harpoon.contains(&path) {
+            cx.editor.harpoon.push(path);
+            cx.editor.set_status("Added to harpoon");
+        } else {
+            cx.editor.set_status("Already in harpoon");
+        }
+    } else {
+        cx.editor.set_error("Buffer has no path");
+    }
+}
+
+fn harpoon_remove(cx: &mut Context) {
+    let doc_path = doc!(cx.editor).path().map(|p| p.to_path_buf());
+    if let Some(path) = doc_path {
+        if let Some(idx) = cx.editor.harpoon.iter().position(|p| p == &path) {
+            cx.editor.harpoon.remove(idx);
+            cx.editor.set_status("Removed from harpoon");
+        } else {
+            cx.editor.set_status("Not in harpoon");
+        }
+    } else {
+        cx.editor.set_error("Buffer has no path");
+    }
+}
+
+fn harpoon_picker(cx: &mut Context) {
+    let items: Vec<_> = cx.editor.harpoon.iter().cloned().enumerate().collect();
+
+    let columns = [
+        PickerColumn::new("idx", |(i, _): &(usize, std::path::PathBuf), _| (i + 1).to_string().into()),
+        PickerColumn::new("path", |(_, path): &(usize, std::path::PathBuf), config: &PathStyleConfig| {
+            config.stylize(Some(path.as_path()), None)
+        }),
+    ];
+
+    let picker = Picker::new(
+        columns,
+        1,
+        items,
+        PathStyleConfig::new(&cx.editor.theme),
+        |cx, (_, path), action| {
+            if let Err(e) = cx.editor.open(path.as_path(), action) {
+                cx.editor.set_error(format!("Failed to open file: {}", e));
+            }
+        },
+    )
+    .with_preview(|editor, (_, path)| {
+        let doc_id = editor.document_by_path(path.as_path()).map(|d| d.id());
+        doc_id.map(|id| (id.into(), None))
+    });
+    cx.push_layer(Box::new(overlaid(picker)));
+}
+
+macro_rules! harpoon_nav {
+    ($name:ident, $idx:expr) => {
+        fn $name(cx: &mut Context) {
+            if let Some(path) = cx.editor.harpoon.get($idx - 1).cloned() {
+                if let Err(e) = cx.editor.open(&path, helix_view::editor::Action::Replace) {
+                    cx.editor.set_error(format!("Failed to open file: {}", e));
+                }
+            } else {
+                cx.editor.set_error(format!("Harpoon index {} is empty", $idx));
+            }
+        }
+    };
+}
+
+fn toggle_zen_mode(cx: &mut Context) {
+    cx.editor.zen_mode = !cx.editor.zen_mode;
+    let msg = if cx.editor.zen_mode { "Zen mode enabled" } else { "Zen mode disabled" };
+    cx.editor.set_status(msg);
+}
+
+harpoon_nav!(harpoon_nav_1, 1);
+harpoon_nav!(harpoon_nav_2, 2);
+harpoon_nav!(harpoon_nav_3, 3);
+harpoon_nav!(harpoon_nav_4, 4);
+harpoon_nav!(harpoon_nav_5, 5);
+harpoon_nav!(harpoon_nav_6, 6);
+harpoon_nav!(harpoon_nav_7, 7);
+harpoon_nav!(harpoon_nav_8, 8);
+harpoon_nav!(harpoon_nav_9, 9);
 
 fn jumplist_picker(cx: &mut Context) {
     struct JumpMeta<'a> {
@@ -4078,6 +4209,8 @@ fn goto_column_impl(cx: &mut Context, movement: Movement) {
     push_jump(view, doc);
     doc.set_selection(view.id, selection);
 }
+
+
 
 fn goto_last_accessed_file(cx: &mut Context) {
     let view = view_mut!(cx.editor);
@@ -5916,7 +6049,15 @@ fn match_brackets(cx: &mut Context) {
 //
 
 fn jump_forward(cx: &mut Context) {
-    cx.editor.jump_forward(cx.editor.tree.focus, cx.count());
+    let view_id = cx.editor.tree.focus;
+    let view = cx.editor.tree.get(view_id);
+    if let Some(doc) = cx.editor.document(view.doc) {
+        if doc.language_id() == Some("org") {
+            cx.editor.set_status("Folding is not natively supported by Helix's rendering engine yet.");
+            return;
+        }
+    }
+    cx.editor.jump_forward(view_id, cx.count());
 }
 
 fn jump_backward(cx: &mut Context) {
@@ -6153,12 +6294,13 @@ fn align_view_middle(cx: &mut Context) {
 }
 
 fn scroll_up(cx: &mut Context) {
-    scroll(cx, cx.count(), Direction::Backward, false);
+    scroll(cx.editor, cx.count(), Direction::Backward, false);
 }
 
 fn scroll_down(cx: &mut Context) {
-    scroll(cx, cx.count(), Direction::Forward, false);
+    scroll(cx.editor, cx.count(), Direction::Forward, false);
 }
+
 
 fn goto_ts_object_impl(cx: &mut Context, object: &'static str, direction: Direction) {
     let count = cx.count();
@@ -7224,5 +7366,66 @@ fn lsp_or_syntax_workspace_symbol_picker(cx: &mut Context) {
         lsp::workspace_symbol_picker(cx);
     } else {
         syntax_workspace_symbol_picker(cx);
+    }
+}
+
+
+
+
+
+
+
+pub fn git_recent_files(cx: &mut Context) {
+    let output = std::process::Command::new("git")
+        .args(&["ls-files", "-m", "-o", "--exclude-standard"])
+        .output();
+    
+    if let Ok(output) = output {
+        let files = String::from_utf8_lossy(&output.stdout);
+        let mut paths = Vec::new();
+        for line in files.lines() {
+            if !line.is_empty() {
+                paths.push(std::path::PathBuf::from(line));
+            }
+        }
+        
+        let root = std::env::current_dir().unwrap_or_else(|_| ".".into());
+        let data = crate::ui::FilePickerData {
+            root: root.clone(),
+            directory_style: cx.editor.theme.get("ui.text.directory"),
+        };
+        
+        let columns = [crate::ui::PickerColumn::new(
+            "path",
+            |item: &std::path::PathBuf, data: &crate::ui::FilePickerData| {
+                let path = item.strip_prefix(&data.root).unwrap_or(item);
+                let mut spans = Vec::with_capacity(3);
+                if let Some(dirs) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
+                    spans.extend([
+                        tui::text::Span::styled(dirs.to_string_lossy(), data.directory_style),
+                        tui::text::Span::styled(std::path::MAIN_SEPARATOR_STR, data.directory_style),
+                    ]);
+                }
+                let filename = path.file_name().unwrap_or_default().to_string_lossy();
+                spans.push(tui::text::Span::raw(filename));
+                tui::text::Spans::from(spans).into()
+            },
+        )];
+        
+        let picker = crate::ui::Picker::new(columns, 0, paths, data, move |cx, path: &std::path::PathBuf, action| {
+            if let Err(e) = cx.editor.open(path, action) {
+                let err = if let Some(err) = e.source() {
+                    format!("{}", err)
+                } else {
+                    format!("unable to open \"{}\"", path.display())
+                };
+                cx.editor.set_error(err);
+            }
+        })
+        .with_preview(|_editor, path| Some((path.as_path().into(), None)));
+        
+        cx.callback.push(Box::new(move |compositor: &mut crate::compositor::Compositor, _cx: &mut crate::compositor::Context| {
+            compositor.push(Box::new(crate::ui::overlay::overlaid(picker)));
+        }));
     }
 }

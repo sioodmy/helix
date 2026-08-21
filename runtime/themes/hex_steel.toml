@@ -41,7 +41,7 @@
 "ui.linenr.selected" = { fg = "highlight_three", bg = "t2" }
 "ui.gutter" = { bg = "t2" }
 
-"ui.background" = { fg = "t4", bg = "t2" }
+"ui.background" = { fg = "t4" }
 "ui.background.separator" = { fg = "t3" }
 "ui.help" = { fg = "t4", bg = "t1" }
 "ui.menu" = { fg = "t4", bg = "t1" }

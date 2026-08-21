@@ -69,7 +69,7 @@
 "diff.delta.gutter" = "gutter_blue"
 
 # ui specific
-"ui.background" = { bg = "shade00" }
+"ui.background" = { "shade00" }
 "ui.cursor" = { bg = "shade02" }
 "ui.cursor.primary" = { bg = "cursor_blue" }
 "ui.cursor.match" = { fg = "shade00", bg = "shade04" }

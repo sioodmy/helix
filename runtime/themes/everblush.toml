@@ -46,7 +46,7 @@
 "diff.delta" = { fg = "magenta" }
 "diff.minus" = { fg = "red" }
 
-"ui.background" = { fg = "foreground", bg = "background" }
+"ui.background" = { fg = "foreground" }
 "ui.cursor" = { modifiers = ["reversed"] }
 "ui.cursorline.primary" = { bg = "cursorline" }
 "ui.help" = { fg = "foreground", bg = "contrast" }

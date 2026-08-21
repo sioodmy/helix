@@ -53,7 +53,7 @@
 "diff.delta" = { fg = "blue" }
 "diff.minus" = { fg = "red" }
 
-"ui.background" = { fg = "light", bg = "darkest" }
+"ui.background" = { fg = "light" }
 
 "ui.window" = { bg = "widget" }
 "ui.popup" = { fg = "beige", bg = "widget" }

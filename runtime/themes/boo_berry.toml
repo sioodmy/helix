@@ -28,7 +28,7 @@
 "markup.quote" = { fg = "berry_desaturated" }
 "markup.raw" = { fg = "mint" }
 
-"ui.background" = { bg = "berry" }
+"ui.background" = { "berry" }
 "ui.cursor" =  { fg = "berry", bg = "lilac" }
 "ui.cursor.match" = { fg = "berry", bg = "berry_desaturated" }
 "ui.cursor.select" = { fg = "berry", bg = "violet" }

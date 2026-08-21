@@ -591,6 +591,7 @@ pub struct Style {
     pub underline_style: Option<UnderlineStyle>,
     pub add_modifier: Modifier,
     pub sub_modifier: Modifier,
+    pub link: Option<&'static str>,
 }
 
 impl Default for Style {
@@ -608,6 +609,7 @@ impl Style {
             underline_style: None,
             add_modifier: Modifier::empty(),
             sub_modifier: Modifier::empty(),
+            link: None,
         }
     }
 
@@ -620,6 +622,7 @@ impl Style {
             underline_style: None,
             add_modifier: Modifier::empty(),
             sub_modifier: Modifier::all(),
+            link: None,
         }
     }
 
@@ -747,6 +750,15 @@ impl Style {
         self.sub_modifier.remove(other.add_modifier);
         self.sub_modifier.insert(other.sub_modifier);
 
+        if let Some(link) = other.link {
+            self.link = Some(link);
+        }
+
+        self
+    }
+
+    pub const fn link(mut self, link: &'static str) -> Style {
+        self.link = Some(link);
         self
     }
 }

@@ -117,7 +117,7 @@
 
 # --- UI ---
 
-"ui.background" = { fg = "chrome-border", bg = "bg" }
+"ui.background" = { fg = "chrome-border" }
 "ui.background.separator" = { fg = "chrome-border" }
 
 "ui.text" = { fg = "fg" }

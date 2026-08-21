@@ -3,7 +3,7 @@
 
 "ui.linenr.selected" = { fg = "cursorlinenr_fg", modifiers = ["bold"] }
 "ui.linenr" = { fg = "linenumber_fg" }
-"ui.background" = { bg = "background" }
+"ui.background" = { "background" }
 "ui.text" = "foreground"
 "ui.text.focus" = { fg = "selection_bg", modifiers = ["bold"] }
 "ui.selection" = { bg = "selection_secondary_bg", fg = "selection_secondary_fg" }

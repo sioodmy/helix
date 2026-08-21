@@ -67,7 +67,7 @@
 "diff.delta" = "blue_accent"
 
 # ui specific
-"ui.background" = { bg = "background" }                                            # .separator
+"ui.background" = { "background" }                                            # .separator
 "ui.cursor" = { bg = "background", modifiers = ["reversed"] }
 "ui.cursor.insert" = { bg = "light_yellow", fg = "background" }
 "ui.cursor.match" = { fg = "background", bg = "dark_orange" }

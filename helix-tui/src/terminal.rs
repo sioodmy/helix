@@ -187,23 +187,17 @@ where
         &mut self,
         cursor_position: Option<(u16, u16)>,
         cursor_kind: CursorKind,
+        raw_bytes: &[u8],
     ) -> io::Result<()> {
-        // // Autoresize - otherwise we get glitches if shrinking or potential desync between widgets
-        // // and the terminal (if growing), which may OOB.
-        // self.autoresize()?;
-
-        // let mut frame = self.get_frame();
-        // f(&mut frame);
-        // // We can't change the cursor position right away because we have to flush the frame to
-        // // stdout first. But we also can't keep the frame around, since it holds a &mut to
-        // // Terminal. Thus, we're taking the important data out of the Frame and dropping it.
-        // let cursor_position = frame.cursor_position;
-
         // One synchronized frame for the whole draw
         self.backend.start_sync()?;
 
         // Draw to stdout
         self.flush()?;
+
+        if !raw_bytes.is_empty() {
+            self.backend.write_raw(raw_bytes)?;
+        }
 
         if let Some((x, y)) = cursor_position {
             self.set_cursor(x, y)?;
@@ -223,6 +217,14 @@ where
         // Flush
         self.backend.flush()?;
         Ok(())
+    }
+
+    /// Write raw bytes through the backend's writer (e.g. Kitty image protocol sequences).
+    /// Must be called after draw() so the bytes are written after the synchronized frame
+    /// and after the backend flush.
+    pub fn write_raw_after_draw(&mut self, bytes: &[u8]) -> io::Result<()> {
+        self.backend.write_raw(bytes)?;
+        self.backend.flush()
     }
 
     #[inline]

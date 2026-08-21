@@ -1,7 +1,7 @@
 # Author: spentbliss <zyhkekrz.hatbox475@passinbox.com>
 # License: MIT (originally by NTBBloodbath)
 
-"ui.background" = { bg = "bg", fg = "fg" } 
+"ui.background" = { "bg", fg = "fg" } 
 "ui.text" = "fg"
 "ui.text.focus" = { bg = "bg_highlight", fg = "cyan" }
 "ui.cursor" = { bg = "cyan", fg = "bg" }
