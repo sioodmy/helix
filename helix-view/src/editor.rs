@@ -438,6 +438,14 @@ pub struct Config {
     pub buffer_picker: BufferPickerConfig,
     /// Workspace-trust configuration.
     pub workspace_trust: WorkspaceTrustConfig,
+    /// Dashboard configuration
+    pub dashboard: DashboardConfig,
+    /// Org-mode configuration  
+    pub org: OrgConfig,
+    /// Org-roam configuration
+    pub org_roam: OrgRoamConfig,
+    /// Markdown configuration
+    pub markdown: MarkdownConfig,
 }
 
 /// User-facing configuration for `[editor.workspace-trust]`.
@@ -1291,6 +1299,10 @@ impl Default for Config {
             kitty_keyboard_protocol: Default::default(),
             buffer_picker: BufferPickerConfig::default(),
             workspace_trust: WorkspaceTrustConfig::default(),
+            dashboard: DashboardConfig::default(),
+            org: OrgConfig::default(),
+            org_roam: OrgRoamConfig::default(),
+            markdown: MarkdownConfig::default(),
         }
     }
 }
@@ -1395,6 +1407,7 @@ pub struct Editor {
     pub cursor_cache: CursorCache,
     pub workspace_trust: WorkspaceTrust,
     pub harpoon: Vec<std::path::PathBuf>,
+    pub image_manager: crate::image::ImageManager,
     pub zen_mode: bool,
 }
 
@@ -1522,6 +1535,7 @@ impl Editor {
             dir_stack: VecDeque::with_capacity(DIR_STACK_CAP),
             workspace_trust,
             harpoon: Vec::new(),
+            image_manager: crate::image::ImageManager::default(),
             zen_mode: false,
         }
     }
@@ -2817,6 +2831,20 @@ impl Default for OrgRoamConfig {
         Self {
             directory: Some("~/Notes".into()),
             dailies_directory: "daily".into(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case", default, deny_unknown_fields)]
+pub struct MarkdownConfig {
+    pub inline_images: bool,
+}
+
+impl Default for MarkdownConfig {
+    fn default() -> Self {
+        Self {
+            inline_images: true,
         }
     }
 }

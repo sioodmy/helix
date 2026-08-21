@@ -104,7 +104,7 @@ impl EditorView {
 
         let view_offset = doc.view_offset(view.id);
 
-        let text_annotations = view.text_annotations(doc, Some(theme));
+        let mut text_annotations = view.text_annotations(doc, Some(theme));
         let mut decorations = DecorationManager::default();
 
         if is_focused && config.cursorline {
@@ -218,6 +218,52 @@ impl EditorView {
             inline_diagnostic_config,
             config.end_of_line_diagnostics,
         ));
+
+        // Inline images for org/markdown
+        let images_enabled = match doc.language_id() {
+            Some("org") => editor.config().org.inline_images,
+            Some("markdown") => editor.config().markdown.inline_images,
+            _ => false,
+        };
+
+        if images_enabled && editor.image_manager.supported {
+            let doc_dir = doc.path().and_then(|p| p.parent());
+            let image_anchors = helix_view::image_detection::detect_images(
+                doc.text(),
+                doc.language_id(),
+                doc_dir,
+            );
+
+            if !image_anchors.is_empty() {
+                let max_img_cols = (inner.width * 80 / 100).max(1);
+
+                // Pre-load images so LineAnnotation can peek at cached dimensions
+                for anchor in &image_anchors {
+                    let _ = editor.image_manager.get_or_load(&anchor.source, max_img_cols);
+                }
+
+                let anchors: &'static [helix_view::image::ImageAnchor] = 
+                    Box::leak(image_anchors.into_boxed_slice());
+
+                text_annotations.add_line_annotation(
+                    helix_view::annotations::inline_images::InlineImageAnnotation::new(
+                        anchors,
+                        &editor.image_manager,
+                        max_img_cols,
+                    ),
+                );
+
+                decorations.add_decoration(
+                    text_decorations::InlineImageDecoration::new(
+                        anchors,
+                        &editor.image_manager,
+                        max_img_cols,
+                        inner.x,
+                        inner.y,
+                    ),
+                );
+            }
+        }
 
 
         render_document(

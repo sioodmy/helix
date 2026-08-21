@@ -133,6 +133,8 @@ impl Application {
         );
         Self::load_configured_theme(&mut editor, &config.load(), &mut terminal, theme_mode);
 
+        editor.image_manager.init(tui::kitty::is_supported());
+
         let keys = Box::new(Map::new(Arc::clone(&config), |config: &Config| {
             &config.keys
         }));
@@ -285,12 +287,50 @@ impl Application {
 
         self.compositor.render(area, surface, &mut cx);
         let (pos, kind) = self.compositor.cursor(area, &self.editor);
-        // reset cursor cache
         self.editor.cursor_cache.reset();
-
         let pos = pos.map(|pos| (pos.col as u16, pos.row as u16));
-        
+        let raw_bytes = self.build_kitty_frame();
         self.terminal.draw(pos, kind, &[]).unwrap();
+        if !raw_bytes.is_empty() {
+            self.terminal.write_raw_after_draw(&raw_bytes).unwrap();
+        }
+    }
+
+    /// Generate Kitty graphics protocol escape sequences for all
+    /// image placements accumulated during the render phase.
+    fn build_kitty_frame(&mut self) -> Vec<u8> {
+        if !self.editor.image_manager.supported {
+            return Vec::new();
+        }
+
+        let placements = self.editor.image_manager.placements.take();
+        let mut buf = Vec::with_capacity(4096); log::info!("Kitty frame: {} placements, supported: {}", placements.len(), self.editor.image_manager.supported);
+
+        // Delete all previous placements
+        tui::kitty::delete_all_placements(&mut buf);
+
+        if placements.is_empty() {
+            return buf;
+        }
+
+        tui::kitty::cursor_save(&mut buf);
+
+        for p in &placements {
+            // Transmit image data if not yet cached by terminal
+            if p.needs_transmit {
+                if let Some(data) = self.editor.image_manager.get_by_id(p.image_id) {
+                    tui::kitty::transmit_png(p.image_id, &data.png_data, &mut buf);
+                }
+                self.editor.image_manager.mark_transmitted(p.image_id);
+            }
+
+            // Move cursor to position and place
+            tui::kitty::cursor_goto(p.screen_row, p.screen_col, &mut buf);
+            tui::kitty::place_image(p.image_id, p.cols, p.rows, &mut buf);
+        }
+
+        tui::kitty::cursor_restore(&mut buf);
+        buf
     }
 
     pub async fn event_loop<S>(&mut self, input_stream: &mut S)

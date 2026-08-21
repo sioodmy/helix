@@ -18,6 +18,8 @@ pub mod register;
 pub mod theme;
 pub mod tree;
 pub mod view;
+pub mod image;
+pub mod image_detection;
 
 use std::num::NonZeroUsize;
 

@@ -62,6 +62,11 @@ rusqlite = { version = "0.36", features = ["bundled"] }
 uuid = { version = "1.15", features = ["v4"] }
 chrono = "0.4"
 base64 = "0.22"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
+resvg = "0.45"
+tiny-skia = "0.11"
+usvg = "0.45"
+mathtosvg = { path = "../mathtosvg" }
 # dev dependencies
 criterion = { version = "0.8", default-features = false, features = ["cargo_bench_support"] }
 quickcheck = { version = "1", default-features = false }

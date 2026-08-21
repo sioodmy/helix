@@ -94,6 +94,9 @@ uuid.workspace = true
 chrono.workspace = true
 base64.workspace = true
 tree-sitter = "0.26.12"
+usvg = "0.38.0"
+resvg = "0.38.0"
+tiny-skia = "0.11"
 [target.'cfg(windows)'.dependencies]
 crossterm = { version = "0.28", features = ["event-stream"] }
 

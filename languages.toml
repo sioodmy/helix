@@ -2454,7 +2454,20 @@ name = "org"
 scope = "source.org"
 injection-regex = "org"
 file-types = ["org"]
+roots = [".git"]
+comment-token = "#"
 indent = { tab-width = 2, unit = "  " }
+
+[language.auto-pairs]
+'(' = ')'
+'{' = '}'
+'[' = ']'
+'"' = '"'
+'`' = '`'
+'*' = '*'
+'/' = '/'
+'=' = '='
+'~' = '~'
 
 [[grammar]]
 name = "org"
