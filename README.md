@@ -7,58 +7,38 @@
   <img alt="Helix" height="128" src="logo_light.svg">
 </picture>
 </h1>
-
-[![Build status](https://github.com/helix-editor/helix/actions/workflows/build.yml/badge.svg)](https://github.com/helix-editor/helix/actions)
-[![GitHub Release](https://img.shields.io/github/v/release/helix-editor/helix)](https://github.com/helix-editor/helix/releases/latest)
-[![Documentation](https://shields.io/badge/-documentation-452859)](https://docs.helix-editor.com/)
-[![GitHub contributors](https://img.shields.io/github/contributors/helix-editor/helix)](https://github.com/helix-editor/helix/graphs/contributors)
-[![Matrix Space](https://img.shields.io/matrix/helix-community:matrix.org)](https://matrix.to/#/#helix-community:matrix.org)
+<img width="600" alt="Editor screnshot" src="https://github.com/user-attachments/assets/fdef5769-f89d-4e8a-9655-a4f12b769a6a" />
+<img width="600" alt="Dashboard screenshot" src="https://github.com/user-attachments/assets/dc36bddd-e3e5-40ae-880d-41d3c86b90d1" />
 
 </div>
 
-![Screenshot](./screenshot.png)
 
-A [Kakoune](https://github.com/mawww/kakoune) / [Neovim](https://github.com/neovim/neovim) inspired editor, written in Rust.
 
-The editing model is very heavily based on Kakoune; during development I found
-myself agreeing with most of Kakoune's design decisions.
-
-For more information, see the [website](https://helix-editor.com) or
-[documentation](https://docs.helix-editor.com/).
-
-All shortcuts/keymaps can be found [in the documentation on the website](https://docs.helix-editor.com/keymap.html).
-
-[Troubleshooting](https://github.com/helix-editor/helix/wiki/Troubleshooting)
+My personal fork of Helix editor customized to my needs.
 
 # Features
 
-- Vim-like modal editing
-- Multiple selections
-- Built-in language server support
-- Smart, incremental syntax highlighting and code editing via tree-sitter
-
-Although it's primarily a terminal-based editor, I am interested in exploring
-a custom renderer (similar to Emacs) using wgpu.
-
-Note: Only certain languages have indentation definitions at the moment. Check
-`runtime/queries/<lang>/` for `indents.scm`.
+- [Alpha.nvim](https://github.com/goolord/alpha-nvim) like dashboard. The ascii art is hardcoded, because it is based on my girlfriend's tatto, so I will keep it like that.
+- [Harpoon](https://github.com/ThePrimeagen/harpoon) implementation (credits: @ThePrimeagen)
+- [nvim-colorizer](https://github.com/norcalli/nvim-colorizer.lua) implementation
+- File browser (leader e)
+- [lspkind.nvim](https://github.com/onsails/lspkind.nvim) implementation
+- Smooth scrolling by default based on [smooth-scroll.hx](https://github.com/thomasschafer/smooth-scroll.hx)
+- Rainbow brackets (credits: @SoraTenshi)
+- Rainbow indent guides (credits: SoraTenshi)
+- Foldable context (credits: @SoraTenshi)
+- Rounded corners in built-in picker
+- Themed bufferline inspired by [bufferline.nvim](https://github.com/akinsho/bufferline.nvim) (while keeping helix's default buffer behaviour)
+- Themed statusline inspired by maaany nvim plugins
 
 # Installation
 
-[Installation documentation](https://docs.helix-editor.com/install.html).
+Just use the Nix package
 
-[![Packaging status](https://repology.org/badge/vertical-allrepos/helix-editor.svg?exclude_unsupported=1)](https://repology.org/project/helix-editor/versions)
+```nix
+nix build github:sioodmy/helix
+```
 
 # Contributing
 
-Contributing guidelines can be found [here](./docs/CONTRIBUTING.md).
-
-# Getting help
-
-Your question might already be answered on the [FAQ](https://github.com/helix-editor/helix/wiki/FAQ).
-
-Discuss the project on the community [Matrix Space](https://matrix.to/#/#helix-community:matrix.org) (make sure to join `#helix-editor:matrix.org` if you're on a client that doesn't support Matrix Spaces yet).
-
-# Credits
-
-Thanks to [@jakenvac](https://github.com/jakenvac) for designing the logo!
+If you have any idea, just submit an issue and I might implement it. You can also submit a PR if you want to, but keep in mind this is my *personal* fork.
