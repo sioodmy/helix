@@ -904,11 +904,11 @@ impl Default for CursorShapeConfig {
 #[serde(rename_all = "kebab-case")]
 pub enum BufferLine {
     /// Don't render bufferline
-    #[default]
     Never,
     /// Always render
     Always,
     /// Only if multiple buffers are open
+    #[default]
     Multiple,
 }
 
@@ -1149,9 +1149,9 @@ impl Default for IndentGuidesConfig {
     fn default() -> Self {
         Self {
             skip_levels: 0,
-            render: false,
+            render: true,
             character: '│',
-            rainbow_option: RainbowIndentOptions::None,
+            rainbow_option: RainbowIndentOptions::Normal,
         }
     }
 }
@@ -1287,7 +1287,7 @@ impl Default for Config {
             end_of_line_diagnostics: DiagnosticFilter::Enable(Severity::Hint),
             clipboard_provider: ClipboardProvider::default(),
             editor_config: true,
-            rainbow_brackets: false,
+            rainbow_brackets: true,
             kitty_keyboard_protocol: Default::default(),
             buffer_picker: BufferPickerConfig::default(),
             workspace_trust: WorkspaceTrustConfig::default(),
