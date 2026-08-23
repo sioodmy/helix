@@ -552,6 +552,7 @@ impl FromStr for Modifier {
 ///         underline_color: Some(Color::Reset),
 ///         underline_style: Some(UnderlineStyle::Reset),
 ///         sub_modifier: Modifier::empty(),
+///         link: None,
 ///     },
 ///     buffer[(0, 0)].style(),
 /// );
@@ -579,6 +580,7 @@ impl FromStr for Modifier {
 ///         underline_style: Some(UnderlineStyle::Reset),
 ///         add_modifier: Modifier::empty(),
 ///         sub_modifier: Modifier::empty(),
+///         link: None,
 ///     },
 ///     buffer[(0, 0)].style(),
 /// );

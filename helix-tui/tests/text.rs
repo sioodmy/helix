@@ -72,6 +72,7 @@ fn styled_graphemes() {
                 style: Style {
                     fg: Some(Color::Yellow),
                     bg: Some(Color::Black),
+                    link: None,
                     underline_color: None,
                     underline_style: None,
                     add_modifier: Modifier::empty(),
@@ -83,6 +84,7 @@ fn styled_graphemes() {
                 style: Style {
                     fg: Some(Color::Yellow),
                     bg: Some(Color::Black),
+                    link: None,
                     underline_color: None,
                     underline_style: None,
                     add_modifier: Modifier::empty(),
@@ -94,6 +96,7 @@ fn styled_graphemes() {
                 style: Style {
                     fg: Some(Color::Yellow),
                     bg: Some(Color::Black),
+                    link: None,
                     underline_color: None,
                     underline_style: None,
                     add_modifier: Modifier::empty(),
@@ -105,6 +108,7 @@ fn styled_graphemes() {
                 style: Style {
                     fg: Some(Color::Yellow),
                     bg: Some(Color::Black),
+                    link: None,
                     underline_color: None,
                     underline_style: None,
                     add_modifier: Modifier::empty(),

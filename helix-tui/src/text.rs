@@ -134,6 +134,7 @@ impl<'a> Span<'a> {
     ///             style: Style {
     ///                 fg: Some(Color::Yellow),
     ///                 bg: Some(Color::Black),
+    ///                 link: None,
     ///                 underline_color: None,
     ///                 underline_style: None,
     ///                 add_modifier: Modifier::empty(),
@@ -145,6 +146,7 @@ impl<'a> Span<'a> {
     ///             style: Style {
     ///                 fg: Some(Color::Yellow),
     ///                 bg: Some(Color::Black),
+    ///                 link: None,
     ///                 underline_color: None,
     ///                 underline_style: None,
     ///                 add_modifier: Modifier::empty(),
@@ -156,6 +158,7 @@ impl<'a> Span<'a> {
     ///             style: Style {
     ///                 fg: Some(Color::Yellow),
     ///                 bg: Some(Color::Black),
+    ///                 link: None,
     ///                 underline_color: None,
     ///                 underline_style: None,
     ///                 add_modifier: Modifier::empty(),
@@ -167,6 +170,7 @@ impl<'a> Span<'a> {
     ///             style: Style {
     ///                 fg: Some(Color::Yellow),
     ///                 bg: Some(Color::Black),
+    ///                 link: None,
     ///                 underline_color: None,
     ///                 underline_style: None,
     ///                 add_modifier: Modifier::empty(),
