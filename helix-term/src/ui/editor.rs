@@ -1041,7 +1041,7 @@ impl EditorView {
 
             let glyph = crate::ui::glyph::file_icon(fname);
             let mod_indicator = if doc.is_modified() { " ●" } else { "" };
-            let prefix = if current_doc == doc.id() { " ▎ " } else { "   " };
+            let prefix = "   ";
 
             let used_width = viewport.x.saturating_sub(x);
             let mut rem_width = surface.area.width.saturating_sub(used_width);
