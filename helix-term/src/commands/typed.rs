@@ -3004,7 +3004,121 @@ const WRITE_NO_CODE_ACTIONS_FLAG: Flag = Flag {
 };
 
 
+macro_rules! wrap_table_cmd {
+    ($fun:ident) => {
+        |cx, _, event| {
+            if event != PromptEvent::Validate { return Ok(()); }
+            let mut cmd_cx = crate::commands::Context {
+                editor: cx.editor,
+                count: None,
+                register: None,
+                jobs: cx.jobs,
+                callback: Vec::new(),
+                on_next_key_callback: None,
+            };
+            crate::commands::table_mode::$fun(&mut cmd_cx);
+            Ok(())
+        }
+    }
+}
+
 pub const TYPABLE_COMMAND_LIST: &[TypableCommand] = &[
+    TypableCommand {
+        name: "table-mode-toggle",
+        aliases: &["table-mode"],
+        doc: "Toggle table mode",
+        fun: wrap_table_cmd!(table_mode_toggle),
+        completer: CommandCompleter::none(),
+        signature: Signature { positionals: (0, Some(0)), ..Signature::DEFAULT },
+    },
+    TypableCommand {
+        name: "table-mode-enable",
+        aliases: &[],
+        doc: "Enable table mode",
+        fun: wrap_table_cmd!(table_mode_enable),
+        completer: CommandCompleter::none(),
+        signature: Signature { positionals: (0, Some(0)), ..Signature::DEFAULT },
+    },
+    TypableCommand {
+        name: "table-mode-disable",
+        aliases: &[],
+        doc: "Disable table mode",
+        fun: wrap_table_cmd!(table_mode_disable),
+        completer: CommandCompleter::none(),
+        signature: Signature { positionals: (0, Some(0)), ..Signature::DEFAULT },
+    },
+    TypableCommand {
+        name: "table-realign",
+        aliases: &["table-mode-realign"],
+        doc: "Realign table",
+        fun: wrap_table_cmd!(table_realign),
+        completer: CommandCompleter::none(),
+        signature: Signature { positionals: (0, Some(0)), ..Signature::DEFAULT },
+    },
+    TypableCommand {
+        name: "tableize",
+        aliases: &[],
+        doc: "Convert text to table",
+        fun: wrap_table_cmd!(tableize),
+        completer: CommandCompleter::none(),
+        signature: Signature { positionals: (0, Some(1)), ..Signature::DEFAULT },
+    },
+    TypableCommand {
+        name: "table-delete-row",
+        aliases: &[],
+        doc: "Delete table row",
+        fun: wrap_table_cmd!(table_delete_row),
+        completer: CommandCompleter::none(),
+        signature: Signature { positionals: (0, Some(0)), ..Signature::DEFAULT },
+    },
+    TypableCommand {
+        name: "table-delete-column",
+        aliases: &[],
+        doc: "Delete table column",
+        fun: wrap_table_cmd!(table_delete_column),
+        completer: CommandCompleter::none(),
+        signature: Signature { positionals: (0, Some(0)), ..Signature::DEFAULT },
+    },
+    TypableCommand {
+        name: "table-insert-column-after",
+        aliases: &[],
+        doc: "Insert column after cursor",
+        fun: wrap_table_cmd!(table_insert_column_after),
+        completer: CommandCompleter::none(),
+        signature: Signature { positionals: (0, Some(0)), ..Signature::DEFAULT },
+    },
+    TypableCommand {
+        name: "table-insert-column-before",
+        aliases: &[],
+        doc: "Insert column before cursor",
+        fun: wrap_table_cmd!(table_insert_column_before),
+        completer: CommandCompleter::none(),
+        signature: Signature { positionals: (0, Some(0)), ..Signature::DEFAULT },
+    },
+    TypableCommand {
+        name: "table-add-formula",
+        aliases: &[],
+        doc: "Add formula for table cell",
+        fun: wrap_table_cmd!(table_add_formula),
+        completer: CommandCompleter::none(),
+        signature: Signature { positionals: (0, Some(0)), ..Signature::DEFAULT },
+    },
+    TypableCommand {
+        name: "table-eval-formula",
+        aliases: &[],
+        doc: "Evaluate table formula line",
+        fun: wrap_table_cmd!(table_eval_formula),
+        completer: CommandCompleter::none(),
+        signature: Signature { positionals: (0, Some(0)), ..Signature::DEFAULT },
+    },
+    TypableCommand {
+        name: "table-sort",
+        aliases: &[],
+        doc: "Sort table column",
+        fun: wrap_table_cmd!(table_sort),
+        completer: CommandCompleter::none(),
+        signature: Signature { positionals: (0, Some(0)), ..Signature::DEFAULT },
+    },
     TypableCommand {
         name: "vim-disable",
         aliases: &[],

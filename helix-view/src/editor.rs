@@ -223,45 +223,60 @@ impl Default for FilePickerConfig {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FileExplorerStyle {
+    Snacks,
+    Mini,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FileExplorerSide {
+    Left,
+    Right,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case", default, deny_unknown_fields)]
 pub struct FileExplorerConfig {
-    /// IgnoreOptions
-    /// Enables ignoring hidden files.
-    /// Whether to hide hidden files in file explorer and global search results. Defaults to false.
-    pub hidden: bool,
-    /// Enables following symlinks.
-    /// Whether to follow symbolic links in file picker and file or directory completions. Defaults to false.
-    pub follow_symlinks: bool,
-    /// Enables reading ignore files from parent directories. Defaults to false.
-    pub parents: bool,
-    /// Enables reading `.ignore` files.
-    /// Whether to hide files listed in .ignore in file picker and global search results. Defaults to false.
-    pub ignore: bool,
-    /// Enables reading `.gitignore` files.
-    /// Whether to hide files listed in .gitignore in file picker and global search results. Defaults to false.
-    pub git_ignore: bool,
-    /// Enables reading global .gitignore, whose path is specified in git's config: `core.excludefile` option.
-    /// Whether to hide files listed in global .gitignore in file picker and global search results. Defaults to false.
-    pub git_global: bool,
-    /// Enables reading `.git/info/exclude` files.
-    /// Whether to hide files listed in .git/info/exclude in file picker and global search results. Defaults to false.
-    pub git_exclude: bool,
-    /// Whether to flatten single-child directories in file explorer. Defaults to true.
-    pub flatten_dirs: bool,
+    pub style: FileExplorerStyle,
+    pub side: FileExplorerSide,
+    pub width: u16,
+    pub min_width: u16,
+    pub max_width: u16,
+    pub ignore: Vec<String>,
+    pub show_hidden: bool,
+    pub show_git_ignored: bool,
+    pub show_separator: bool,
+    pub focused_bg: Option<String>,
+    pub unfocused_bg: Option<String>,
+    pub search_color_focused: Option<String>,
+    pub search_color_unfocused: Option<String>,
 }
 
 impl Default for FileExplorerConfig {
     fn default() -> Self {
         Self {
-            hidden: false,
-            follow_symlinks: false,
-            parents: false,
-            ignore: false,
-            git_ignore: false,
-            git_global: false,
-            git_exclude: false,
-            flatten_dirs: true,
+            style: FileExplorerStyle::Snacks,
+            side: FileExplorerSide::Left,
+            width: 32,
+            min_width: 16,
+            max_width: 60,
+            ignore: vec![
+                ".git".to_string(),
+                "target".to_string(),
+                "node_modules".to_string(),
+                "__pycache__".to_string(),
+                ".direnv".to_string(),
+            ],
+            show_hidden: false,
+            show_git_ignored: false,
+            show_separator: true,
+            focused_bg: None,
+            unfocused_bg: None,
+            search_color_focused: None,
+            search_color_unfocused: None,
         }
     }
 }
@@ -1336,6 +1351,7 @@ type Diagnostics = BTreeMap<Uri, Vec<(lsp::Diagnostic, DiagnosticProvider)>>;
 pub struct Editor {
     /// Current editing mode.
     pub mode: Mode,
+    pub file_explorer_active: bool,
     pub tree: Tree,
     pub next_document_id: DocumentId,
     pub documents: BTreeMap<DocumentId, Document>,
@@ -1509,6 +1525,7 @@ impl Editor {
 
         Self {
             mode: Mode::Normal,
+            file_explorer_active: false,
             tree: Tree::new(area),
             next_document_id: DocumentId::default(),
             documents: BTreeMap::new(),

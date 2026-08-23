@@ -2,7 +2,8 @@ mod completion;
 mod context;
 mod document;
 pub(crate) mod editor;
-pub mod file_browser;
+pub mod file_explorer;
+pub mod glyph;
 mod info;
 pub mod lsp;
 mod markdown;
@@ -327,13 +328,13 @@ pub(crate) fn directory_content(root: &Path, editor: &Editor) -> Result<Vec<(Pat
     let mut walk_builder = WalkBuilder::new(root);
 
     let mut content: Vec<(PathBuf, bool)> = walk_builder
-        .hidden(config.file_explorer.hidden)
-        .parents(config.file_explorer.parents)
-        .ignore(config.file_explorer.ignore)
-        .follow_links(config.file_explorer.follow_symlinks)
-        .git_ignore(config.file_explorer.git_ignore)
-        .git_global(config.file_explorer.git_global)
-        .git_exclude(config.file_explorer.git_exclude)
+        .hidden(!config.file_explorer.show_hidden)
+        .parents(true)
+        .ignore(true)
+        .follow_links(false)
+        .git_ignore(!config.file_explorer.show_git_ignored)
+        .git_global(!config.file_explorer.show_git_ignored)
+        .git_exclude(!config.file_explorer.show_git_ignored)
         .max_depth(Some(1))
         .add_custom_ignore_filename(helix_loader::config_dir().join("ignore"))
         .add_custom_ignore_filename(".helix/ignore")
@@ -345,7 +346,7 @@ pub(crate) fn directory_content(root: &Path, editor: &Editor) -> Result<Vec<(Pat
                     let path = entry.path();
                     let is_dir = path.is_dir();
                     let mut path = path.to_path_buf();
-                    if is_dir && path != root && config.file_explorer.flatten_dirs {
+                    if is_dir && path != root {
                         while let Some(single_child_directory) = get_child_if_single_dir(&path) {
                             path = single_child_directory;
                         }

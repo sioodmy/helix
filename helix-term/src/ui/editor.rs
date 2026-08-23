@@ -237,6 +237,34 @@ impl EditorView {
                         ));
                     }
                 }
+                
+                if doc.table_mode || line_str_trim.starts_with('|') || line_str_trim.starts_with('+') {
+                    let is_separator = line_str_trim.chars().all(|c| c == '|' || c == '+' || c == '-' || c == '=' || c == ':' || c.is_whitespace());
+                    
+                    for (i, c) in line_str.chars().enumerate() {
+                        if c == '|' {
+                            org_overlays.push(helix_core::text_annotations::Overlay::new(
+                                line_start_char + i,
+                                "│",
+                            ));
+                        } else if c == '+' {
+                            org_overlays.push(helix_core::text_annotations::Overlay::new(
+                                line_start_char + i,
+                                "┼",
+                            ));
+                        } else if is_separator && c == '-' {
+                            org_overlays.push(helix_core::text_annotations::Overlay::new(
+                                line_start_char + i,
+                                "─",
+                            ));
+                        } else if is_separator && c == '=' {
+                            org_overlays.push(helix_core::text_annotations::Overlay::new(
+                                line_start_char + i,
+                                "═",
+                            ));
+                        }
+                    }
+                }
             }
             
             for inlines in tag_inlines.iter_mut() {
@@ -970,28 +998,7 @@ impl EditorView {
         Some(OverlayHighlights::Homogeneous { highlight, ranges })
     }
 
-fn get_file_icon(fname: &str) -> &'static str {
-    if let Some(ext) = fname.rsplit('.').next() {
-        match ext {
-            "rs" => "󱘎",
-            "js" => "󰌧",
-            "ts" | "tsx" => "󰛦",
-            "json" => "󰘦",
-            "md" | "markdown" => "",
-            "toml" => "󰅩",
-            "yaml" | "yml" => "󰆧",
-            "html" => "󰌝",
-            "css" => "󰌜",
-            "py" => "󰌠",
-            "go" => "󰟓",
-            "c" | "cpp" | "h" | "hpp" => "󰙲",
-            "sh" | "bash" => "󰆍",
-            _ => "󰈙",
-        }
-    } else {
-        "󰈙"
-    }
-}
+
 
     /// Render bufferline at the top
     pub fn render_bufferline(editor: &Editor, viewport: Rect, surface: &mut Surface) {
@@ -1032,16 +1039,31 @@ fn get_file_icon(fname: &str) -> &'static str {
                 bufferline_inactive
             };
 
-            let icon = Self::get_file_icon(fname);
+            let glyph = crate::ui::glyph::file_icon(fname);
             let mod_indicator = if doc.is_modified() { " ●" } else { "" };
-            let text = if current_doc == doc.id() {
-                format!(" ▎ {}  {}{} ", icon, fname, mod_indicator)
-            } else {
-                format!("   {}  {}{} ", icon, fname, mod_indicator)
-            };
-            let used_width = viewport.x.saturating_sub(x);
-            let rem_width = surface.area.width.saturating_sub(used_width);
+            let prefix = if current_doc == doc.id() { " ▎ " } else { "   " };
 
+            let used_width = viewport.x.saturating_sub(x);
+            let mut rem_width = surface.area.width.saturating_sub(used_width);
+
+            x = surface
+                .set_stringn(x, viewport.y, prefix, rem_width as usize, style)
+                .0;
+            rem_width = surface.area.width.saturating_sub(viewport.x.saturating_sub(x));
+
+            let icon_str = format!("{} ", glyph.icon);
+            x = surface
+                .set_stringn(
+                    x,
+                    viewport.y,
+                    &icon_str,
+                    rem_width as usize,
+                    style.patch(glyph.style()),
+                )
+                .0;
+            rem_width = surface.area.width.saturating_sub(viewport.x.saturating_sub(x));
+
+            let text = format!(" {}{} ", fname, mod_indicator);
             x = surface
                 .set_stringn(x, viewport.y, &text, rem_width as usize, style)
                 .0;
@@ -2007,6 +2029,15 @@ impl Component for EditorView {
         };
         if cx.editor.zen_mode || cx.editor.org_present.is_some() {
             use_bufferline = false;
+        }
+
+        let mut area = area;
+        if cx.editor.file_explorer_active && config.file_explorer.style == helix_view::editor::FileExplorerStyle::Snacks {
+            if config.file_explorer.side == helix_view::editor::FileExplorerSide::Left {
+                area = area.clip_left(config.file_explorer.width);
+            } else {
+                area = area.clip_right(config.file_explorer.width);
+            }
         }
 
         // -1 for commandline and -1 for bufferline

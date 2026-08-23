@@ -1,6 +1,7 @@
 pub(crate) mod dap;
 pub(crate) mod lsp;
 pub(crate) mod syntax;
+pub(crate) mod table_mode;
 pub(crate) mod typed;
 pub(crate) mod vim_patch;
 
@@ -17,6 +18,7 @@ use helix_stdx::{
 use helix_vcs::{FileChange, Hunk};
 pub use lsp::*;
 pub use syntax::*;
+pub use table_mode::*;
 use tui::{
     text::{Span, Spans},
     widgets::Cell,
@@ -310,6 +312,22 @@ impl MappableCommand {
     static_commands_with_default!(
     static_commands!(
         no_op, "Do nothing",
+        table_mode_toggle, "Toggle table mode",
+        table_mode_enable, "Enable table mode",
+        table_mode_disable, "Disable table mode",
+        table_realign, "Realign the table",
+        tableize, "Convert delimited text to a table",
+        table_delete_row, "Delete current table row",
+        table_delete_column, "Delete current table column",
+        table_insert_column_after, "Insert column after cursor",
+        table_insert_column_before, "Insert column before cursor",
+        table_next_cell, "Move to next cell",
+        table_prev_cell, "Move to previous cell",
+        table_up_cell, "Move to cell above",
+        table_down_cell, "Move to cell below",
+        table_add_formula, "Add formula for table cell",
+        table_eval_formula, "Evaluate table formula line",
+        table_sort, "Sort table column",
         move_char_left, "Move left",
         move_char_right, "Move right",
         move_line_up, "Move up",
@@ -3458,7 +3476,8 @@ fn file_explorer(cx: &mut Context) {
         return;
     }
 
-    if let Ok(picker) = ui::file_browser::file_browser(root, cx.editor) {
+    if let Ok(picker) = ui::file_explorer::file_explorer(root, cx.editor) {
+        cx.editor.file_explorer_active = true;
         cx.push_layer(Box::new(overlaid(picker)));
     }
 }
@@ -3485,7 +3504,8 @@ fn file_explorer_in_current_buffer_directory(cx: &mut Context) {
         }
     };
 
-    if let Ok(picker) = ui::file_browser::file_browser(path, cx.editor) {
+    if let Ok(picker) = ui::file_explorer::file_explorer(path, cx.editor) {
+        cx.editor.file_explorer_active = true;
         cx.push_layer(Box::new(overlaid(picker)));
     }
 }
@@ -3498,7 +3518,8 @@ fn file_explorer_in_current_directory(cx: &mut Context) {
         return;
     }
 
-    if let Ok(picker) = ui::file_browser::file_browser(cwd, cx.editor) {
+    if let Ok(picker) = ui::file_explorer::file_explorer(cwd, cx.editor) {
+        cx.editor.file_explorer_active = true;
         cx.push_layer(Box::new(overlaid(picker)));
     }
 }
@@ -4695,6 +4716,10 @@ pub mod insert {
 
         let doc = doc_mut!(cx.editor, &doc.id());
         doc.apply(&transaction, view.id);
+
+        if c == '|' {
+            crate::commands::table_mode::auto_align_on_insert(cx, c);
+        }
 
         helix_event::dispatch(PostInsertChar { c, cx });
     }
