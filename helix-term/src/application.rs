@@ -309,6 +309,10 @@ impl Application {
         // Delete all previous placements
         tui::kitty::delete_all_placements(&mut buf);
 
+        if self.compositor.layer_count() > 1 || self.editor.autoinfo.is_some() || self.compositor.find::<crate::ui::EditorView>().map(|v| v.completion.is_some()).unwrap_or(false) {
+            return buf;
+        }
+
         if placements.is_empty() {
             return buf;
         }

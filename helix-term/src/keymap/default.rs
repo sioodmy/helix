@@ -236,6 +236,13 @@ pub fn default() -> HashMap<Mode, KeyTrie> {
             "d" => diagnostics_picker,
             "D" => workspace_diagnostics_picker,
             "g" => changed_file_picker,
+            "o" => { "Orgmode"
+                "g" => org_live_grep,
+                "s" => org_telescope,
+                "S" => org_schedule,
+                "d" => org_deadline,
+                "P" => org_present,
+            },
             "H" => { "Harpoon"
                 "a" => harpoon_add,
                 "r" => harpoon_remove,

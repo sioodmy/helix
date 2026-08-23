@@ -16,6 +16,7 @@ mod spinner;
 mod statusline;
 mod text;
 mod text_decorations;
+pub mod date_picker;
 pub mod dashboard;
 
 use crate::compositor::Compositor;

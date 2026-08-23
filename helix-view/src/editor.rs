@@ -1409,6 +1409,22 @@ pub struct Editor {
     pub harpoon: Vec<std::path::PathBuf>,
     pub image_manager: crate::image::ImageManager,
     pub zen_mode: bool,
+    pub org_present: Option<OrgPresentState>,
+}
+
+#[derive(Debug, Clone)]
+pub struct SlideRange {
+    pub title: String,
+    pub start_line: usize,
+    pub end_line: usize,
+    pub start_char: usize,
+    pub end_char: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct OrgPresentState {
+    pub current_slide: usize,
+    pub slides: Vec<SlideRange>,
 }
 
 pub type Motion = Box<dyn Fn(&mut Editor)>;
@@ -1537,7 +1553,124 @@ impl Editor {
             harpoon: Vec::new(),
             image_manager: crate::image::ImageManager::default(),
             zen_mode: false,
+            org_present: None,
         }
+    }
+
+    pub fn start_org_present(&mut self) -> bool {
+        let (_view, doc) = current!(self);
+        let text = doc.text().slice(..);
+        let len_lines = text.len_lines();
+        if len_lines == 0 {
+            return false;
+        }
+
+        let heading_re = regex::Regex::new(r"^(\*+)\s+(.*)$").unwrap();
+        let mut headings = Vec::new();
+
+        for line_idx in 0..len_lines {
+            let line_str = text.line(line_idx).to_string();
+            if let Some(caps) = heading_re.captures(&line_str) {
+                let stars = caps.get(1).unwrap().as_str();
+                let title = caps.get(2).unwrap().as_str().to_string();
+                let level = stars.len();
+                headings.push((line_idx, level, title));
+            }
+        }
+
+        let mut slides = Vec::new();
+        if headings.is_empty() {
+            slides.push(SlideRange {
+                title: "Slide 1".to_string(),
+                start_line: 0,
+                end_line: len_lines.saturating_sub(1),
+                start_char: 0,
+                end_char: text.len_chars(),
+            });
+        } else {
+            let has_level_1 = headings.iter().any(|(_, level, _)| *level == 1);
+            let slide_headings: Vec<_> = headings
+                .into_iter()
+                .filter(|(_, level, _)| !has_level_1 || *level == 1)
+                .collect();
+
+            if slide_headings[0].0 > 0 {
+                let first_line = slide_headings[0].0;
+                slides.push(SlideRange {
+                    title: "Overview".to_string(),
+                    start_line: 0,
+                    end_line: first_line.saturating_sub(1),
+                    start_char: 0,
+                    end_char: text.line_to_char(first_line),
+                });
+            }
+
+            for (idx, (line_idx, _, title)) in slide_headings.iter().enumerate() {
+                let next_line = if idx + 1 < slide_headings.len() {
+                    slide_headings[idx + 1].0
+                } else {
+                    len_lines
+                };
+
+                let end_line = next_line.saturating_sub(1);
+                let start_char = text.line_to_char(*line_idx);
+                let end_char = if next_line < len_lines {
+                    text.line_to_char(next_line)
+                } else {
+                    text.len_chars()
+                };
+
+                slides.push(SlideRange {
+                    title: title.clone(),
+                    start_line: *line_idx,
+                    end_line,
+                    start_char,
+                    end_char,
+                });
+            }
+        }
+
+        self.org_present = Some(OrgPresentState {
+            current_slide: 0,
+            slides,
+        });
+
+        self.sync_org_present_slide();
+        true
+    }
+
+    pub fn sync_org_present_slide(&mut self) {
+        if let Some(state) = &self.org_present {
+            let slide_idx = state.current_slide;
+            if let Some(slide) = state.slides.get(slide_idx) {
+                let (view, doc) = current!(self);
+                let selection = Selection::point(slide.start_char);
+                doc.set_selection(view.id, selection);
+                crate::align_view(doc, view, crate::Align::Top);
+            }
+        }
+    }
+
+    pub fn next_slide(&mut self) {
+        if let Some(state) = &mut self.org_present {
+            if state.current_slide + 1 < state.slides.len() {
+                state.current_slide += 1;
+                self.sync_org_present_slide();
+            }
+        }
+    }
+
+    pub fn prev_slide(&mut self) {
+        if let Some(state) = &mut self.org_present {
+            if state.current_slide > 0 {
+                state.current_slide -= 1;
+                self.sync_org_present_slide();
+            }
+        }
+    }
+
+    pub fn stop_org_present(&mut self) {
+        self.org_present = None;
     }
 
     pub fn popup_border(&self) -> bool {
@@ -2804,6 +2937,7 @@ impl Default for DashboardConfig {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case", default, deny_unknown_fields)]
 pub struct OrgConfig {
+    pub notes_dir: String,
     pub todo_keywords: Vec<String>,
     pub bullets: Vec<String>,
     pub inline_images: bool,
@@ -2812,6 +2946,7 @@ pub struct OrgConfig {
 impl Default for OrgConfig {
     fn default() -> Self {
         Self {
+            notes_dir: "~/Notes".into(),
             todo_keywords: vec!["TODO".into(), "NEXT".into(), "IN-PROGRESS".into(), "WAITING".into(), "|".into(), "DONE".into(), "CANCELLED".into()],
             bullets: vec!["◉".into(), "○".into(), "✸".into(), "✿".into(), "◆".into(), "◇".into()],
             inline_images: true,

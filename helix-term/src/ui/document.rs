@@ -38,6 +38,8 @@ pub fn render_document(
     overlay_highlights: Vec<syntax::OverlayHighlights>,
     theme: &Theme,
     decorations: DecorationManager,
+    terminal_links: Vec<(std::ops::Range<usize>, &'static str)>,
+    max_doc_line: Option<usize>,
 ) {
     let mut renderer = TextRenderer::new(
         surface,
@@ -58,7 +60,65 @@ pub fn render_document(
         theme,
         decorations,
         colorizer_enabled,
+        terminal_links,
+        max_doc_line,
     )
+}
+
+use std::collections::HashSet;
+use std::sync::Mutex;
+use once_cell::sync::Lazy;
+
+pub static URL_INTERNER: Lazy<Mutex<HashSet<&'static str>>> = Lazy::new(|| Mutex::new(HashSet::new()));
+
+pub fn intern_url(url: &str) -> &'static str {
+    let mut interner = URL_INTERNER.lock().unwrap();
+    if let Some(&interned) = interner.get(url) {
+        interned
+    } else {
+        let leaked = Box::leak(url.to_string().into_boxed_str());
+        interner.insert(leaked);
+        leaked
+    }
+}
+
+pub struct TerminalLinkHighlighter {
+    spans: std::vec::IntoIter<(std::ops::Range<usize>, &'static str)>,
+    current: Option<(std::ops::Range<usize>, &'static str)>,
+    pub pos: usize,
+    pub link: Option<&'static str>,
+}
+
+impl TerminalLinkHighlighter {
+    pub fn new(mut links: Vec<(std::ops::Range<usize>, &'static str)>) -> Self {
+        links.sort_by_key(|(range, _)| range.start);
+        let mut spans = links.into_iter();
+        let current = spans.next();
+        Self {
+            spans,
+            current,
+            pos: 0,
+            link: None,
+        }
+    }
+
+    pub fn advance(&mut self) {
+        if let Some((range, url)) = &self.current {
+            if self.pos < range.start {
+                self.link = None;
+                self.pos = range.start;
+            } else if self.pos < range.end {
+                self.link = Some(*url);
+                self.pos = range.end;
+            } else {
+                self.current = self.spans.next();
+                self.link = None;
+            }
+        } else {
+            self.link = None;
+            self.pos = usize::MAX;
+        }
+    }
 }
 
 pub struct ColorizerHighlighter {
@@ -208,6 +268,8 @@ pub fn render_text(
     theme: &Theme,
     mut decorations: DecorationManager,
     colorizer_enabled: bool,
+    terminal_links: Vec<(std::ops::Range<usize>, &'static str)>,
+    max_doc_line: Option<usize>,
 ) {
     let row_off = visual_offset_from_block(text, anchor, anchor, text_fmt, text_annotations)
         .0
@@ -228,6 +290,8 @@ pub fn render_text(
     } else {
         None
     };
+    
+    let mut link_highlighter = TerminalLinkHighlighter::new(terminal_links);
 
     let mut last_line_pos = LinePos {
         first_visual_line: false,
@@ -257,6 +321,12 @@ pub fn render_text(
         // if the end of the viewport is reached stop rendering
         if grapheme.visual_pos.row as u16 >= renderer.viewport.height + renderer.offset.row as u16 {
             break;
+        }
+
+        if let Some(max_line) = max_doc_line {
+            if grapheme.line_idx > max_line {
+                break;
+            }
         }
 
         // apply decorations before rendering a new line
@@ -291,6 +361,9 @@ pub fn render_text(
                 colorizer.advance();
             }
         }
+        while grapheme.char_idx >= link_highlighter.pos {
+            link_highlighter.advance();
+        }
 
         let mut grapheme_style = if let GraphemeSource::VirtualText { highlight } = grapheme.source {
             let mut style = renderer.text_style;
@@ -312,6 +385,11 @@ pub fn render_text(
             if colorizer.style != Style::default() {
                 grapheme_style.overlay_style = grapheme_style.overlay_style.patch(colorizer.style);
             }
+        }
+        
+        if let Some(link) = link_highlighter.link {
+            grapheme_style.overlay_style.link = Some(link);
+            grapheme_style.overlay_style.underline_style = Some(helix_view::graphics::UnderlineStyle::Line);
         }
 
         decorations.decorate_grapheme(renderer, &grapheme);

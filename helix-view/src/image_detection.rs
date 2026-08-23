@@ -20,6 +20,7 @@ pub fn detect_images(
         }
         Some("org") => {
             detect_org_images(&text_str, text, doc_dir, &mut anchors);
+            detect_markdown_images(&text_str, text, doc_dir, &mut anchors);
             detect_math_expressions(&text_str, text, &mut anchors);
         }
         _ => {}

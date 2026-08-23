@@ -775,7 +775,7 @@ impl Document {
             syn_loader,
             previous_diagnostic_ids: HashMap::new(),
             pull_diagnostic_controller: TaskController::new(),
-            document_link_controller: TaskController::new(),
+            document_link_controller: TaskController::default(),
         }
     }
 

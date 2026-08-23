@@ -89,7 +89,8 @@ impl EditorView {
     ) {
         let mut inner = view.inner_area(doc);
         let area = view.area;
-        if editor.zen_mode {
+        let hide_ui = editor.zen_mode || editor.org_present.is_some();
+        if hide_ui {
             let max_width = 120;
             let mut new_inner = view.area;
             let text_width = std::cmp::min(new_inner.width, max_width);
@@ -104,8 +105,229 @@ impl EditorView {
 
         let view_offset = doc.view_offset(view.id);
 
+        let mut org_overlays = Vec::new();
+        let mut bullet_overlays = Vec::new();
+        let mut link_overlays = Vec::new();
+        let mut terminal_links = Vec::new();
+        let mut tag_inlines: [Vec<helix_core::text_annotations::InlineAnnotation>; 5] = Default::default();
         let mut text_annotations = view.text_annotations(doc, Some(theme));
         let mut decorations = DecorationManager::default();
+
+        if doc.language_id() == Some("org") || doc.language_id() == Some("markdown") {
+            let text = doc.text().slice(..);
+            let row = text.char_to_line(view_offset.anchor.min(text.len_chars()));
+            let range = Self::viewport_byte_range(text, row, inner.height);
+            let start_line = text.byte_to_line(range.start);
+            let end_line = text.byte_to_line(range.end.min(text.len_bytes()));
+            
+            let selections = doc.selection(view.id);
+            let cursor_lines: std::collections::HashSet<_> = selections.iter().map(|s| s.cursor_line(text)).collect();
+            
+            let tag_highlights = [
+                theme.find_highlight("string"),
+                theme.find_highlight("function"),
+                theme.find_highlight("keyword"),
+                theme.find_highlight("constant"),
+                theme.find_highlight("variable"),
+            ];
+            let tag_re = regex::Regex::new(r"(?:\s+(:[a-zA-Z0-9_@#%:]+:))\s*$").unwrap();
+            let bullets = ["◉", "○", "✸", "✿"];
+            
+            let mut in_drawer = false;
+            for line in start_line..=end_line {
+                let line_str = text.line(line);
+                let line_str_trim = line_str.to_string().trim().to_string();
+
+                if line_str_trim.eq_ignore_ascii_case(":PROPERTIES:") || line_str_trim.eq_ignore_ascii_case(":LOGBOOK:") {
+                    in_drawer = true;
+                }
+
+                let is_metadata = line_str_trim.starts_with("#+") || in_drawer;
+
+                if line_str_trim.eq_ignore_ascii_case(":END:") {
+                    in_drawer = false;
+                }
+
+                if is_metadata && editor.org_present.is_some() {
+                    let line_start_char = text.line_to_char(line);
+                    let line_char_count = line_str.chars().count();
+                    for i in 0..line_char_count {
+                        org_overlays.push(helix_core::text_annotations::Overlay::new(
+                            line_start_char + i,
+                            "",
+                        ));
+                    }
+                    continue;
+                }
+                
+                if cursor_lines.contains(&line) && editor.org_present.is_none() {
+                    continue;
+                }
+
+                let line_start_char = text.line_to_char(line);
+                let line_str_cow = line_str.to_string();
+
+                let mut level = 0;
+                for c in line_str.chars() {
+                    if c == '*' {
+                        level += 1;
+                    } else {
+                        break;
+                    }
+                }
+                if level > 0 && line_str.chars().nth(level) == Some(' ') {
+                    let bullet = bullets[(level - 1) % bullets.len()];
+                    for i in 0..(level - 1) {
+                        org_overlays.push(helix_core::text_annotations::Overlay::new(
+                            line_start_char + i,
+                            " ",
+                        ));
+                    }
+                    bullet_overlays.push(helix_core::text_annotations::Overlay::new(
+                        line_start_char + level - 1,
+                        bullet,
+                    ));
+                    
+                    if let Some(caps) = tag_re.captures(&line_str_cow) {
+                        let m = caps.get(1).unwrap();
+                        let start_local = line_str_cow[..m.start()].chars().count();
+                        let tags_str = m.as_str();
+                        
+                        let tags: Vec<_> = tags_str.split(':').filter(|s| !s.is_empty()).collect();
+                        
+                        let mut current_local = start_local;
+                        for (idx, &tag) in tags.iter().enumerate() {
+                            let hash = tag.bytes().fold(0usize, |acc, b| acc.wrapping_add(b as usize));
+                            let color_idx = hash % 5;
+                            let tag_len = tag.chars().count();
+                            
+                            tag_inlines[color_idx].push(helix_core::text_annotations::InlineAnnotation::new(
+                                line_start_char + current_local,
+                                "",
+                            ));
+                            tag_inlines[color_idx].push(helix_core::text_annotations::InlineAnnotation::new(
+                                line_start_char + current_local,
+                                tag,
+                            ));
+                            tag_inlines[color_idx].push(helix_core::text_annotations::InlineAnnotation::new(
+                                line_start_char + current_local,
+                                "",
+                            ));
+                            
+                            if idx + 1 < tags.len() {
+                                tag_inlines[color_idx].push(helix_core::text_annotations::InlineAnnotation::new(
+                                    line_start_char + current_local,
+                                    " ",
+                                ));
+                            }
+                            
+                            let chars_to_hide = tag_len + 1;
+                            for i in 0..chars_to_hide {
+                                org_overlays.push(helix_core::text_annotations::Overlay::new(
+                                    line_start_char + current_local + i,
+                                    "",
+                                ));
+                            }
+                            
+                            current_local += chars_to_hide;
+                        }
+                        org_overlays.push(helix_core::text_annotations::Overlay::new(
+                            line_start_char + current_local,
+                            "",
+                        ));
+                    }
+                }
+            }
+            
+            for inlines in tag_inlines.iter_mut() {
+                inlines.sort_by_key(|a| a.char_idx);
+            }
+            bullet_overlays.sort_by_key(|o| o.char_idx);
+            org_overlays.sort_by_key(|o| o.char_idx);
+
+            for (i, inlines) in tag_inlines.iter().enumerate() {
+                if !inlines.is_empty() {
+                    let highlight = tag_highlights[i];
+                    text_annotations.add_inline_annotations(inlines, highlight);
+                }
+            }
+            
+            if !bullet_overlays.is_empty() {
+                let bullet_style = theme.find_highlight("function")
+                    .or_else(|| theme.find_highlight("ui.statusline.insert"))
+                    .or_else(|| theme.find_highlight("keyword"));
+                text_annotations.add_overlay(&bullet_overlays, bullet_style);
+            }
+
+            if !org_overlays.is_empty() {
+                let style = theme.find_highlight("ui.virtual.org-bullet").or_else(|| theme.find_highlight("ui.virtual"));
+                text_annotations.add_overlay(&org_overlays, style);
+            }
+        }
+        
+        if doc.language_id() == Some("org") || doc.language_id() == Some("markdown") {
+            let text = doc.text().slice(..);
+            let row = text.char_to_line(view_offset.anchor.min(text.len_chars()));
+            let range = Self::viewport_byte_range(text, row, inner.height);
+            let start_line = text.byte_to_line(range.start);
+            let end_line = text.byte_to_line(range.end.min(text.len_bytes()));
+            
+            let selections = doc.selection(view.id);
+            let cursor_lines: std::collections::HashSet<_> = selections.iter().map(|s| s.cursor_line(text)).collect();
+            
+            let link_re = regex::Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").unwrap();
+            
+            for line in start_line..=end_line {
+                let line_str = text.line(line);
+                let line_str_cow = line_str.to_string(); // we need string for regex
+                
+                let line_start_char = text.line_to_char(line);
+                
+                for mat in link_re.captures_iter(&line_str_cow) {
+                    let m = mat.get(0).unwrap();
+                    let text_match = mat.get(1).unwrap();
+                    let url_match = mat.get(2).unwrap();
+                    
+                    // If it is preceded by '!', it's an image. So skip.
+                    if m.start() > 0 && line_str_cow[..m.start()].ends_with('!') {
+                        continue;
+                    }
+                    
+                    let start_char_local = line_str_cow[..m.start()].chars().count();
+                    let text_start_local = line_str_cow[..text_match.start()].chars().count();
+                    let text_end_local = text_start_local + text_match.as_str().chars().count();
+                    let end_char_local = start_char_local + m.as_str().chars().count();
+                    
+                    let url = crate::ui::document::intern_url(url_match.as_str());
+                    terminal_links.push((
+                        line_start_char + text_start_local..line_start_char + text_end_local,
+                        url,
+                    ));
+                    
+                    if !cursor_lines.contains(&line) {
+                        // Hide '['
+                        for i in start_char_local..text_start_local {
+                            link_overlays.push(helix_core::text_annotations::Overlay::new(
+                                line_start_char + i,
+                                "",
+                            ));
+                        }
+                        // Hide '](url)'
+                        for i in text_end_local..end_char_local {
+                            link_overlays.push(helix_core::text_annotations::Overlay::new(
+                                line_start_char + i,
+                                "",
+                            ));
+                        }
+                    }
+                }
+            }
+            if !link_overlays.is_empty() {
+                link_overlays.sort_by_key(|o| o.char_idx);
+                let style = theme.find_highlight("ui.virtual").or_else(|| theme.find_highlight("ui.text"));
+                text_annotations.add_overlay(&link_overlays, style);
+            }
+        }
 
         if is_focused && config.cursorline {
             decorations.add_decoration(Self::cursorline(doc, view, theme));
@@ -193,7 +415,7 @@ impl EditorView {
         }
 
         let gutter_overflow = view.gutter_offset(doc) == 0;
-        if !gutter_overflow && !editor.zen_mode {
+        if !gutter_overflow && !hide_ui {
             Self::render_gutter(
                 editor,
                 doc,
@@ -266,6 +488,14 @@ impl EditorView {
         }
 
 
+        let max_doc_line = editor.org_present.as_ref().map(|state| {
+            if let Some(slide) = state.slides.get(state.current_slide) {
+                slide.end_line
+            } else {
+                doc.text().len_lines()
+            }
+        });
+
         render_document(
             surface,
             inner,
@@ -276,6 +506,8 @@ impl EditorView {
             overlays,
             theme,
             decorations,
+            terminal_links,
+            max_doc_line,
         );
 
         if config.sticky_context.enable {
@@ -291,7 +523,7 @@ impl EditorView {
             context::render_sticky_context(doc, view, surface, self.sticky_nodes.as_ref(), theme, &loader);
         }
 
-        if !editor.zen_mode {
+        if !hide_ui {
             Self::render_rulers(editor, doc, view, inner, surface, theme);
         }
 
@@ -313,7 +545,7 @@ impl EditorView {
             Self::render_diagnostics(doc, view, inner, surface, theme);
         }
 
-        if !editor.zen_mode {
+        if !hide_ui {
             let statusline_area = view
                 .area
                 .clip_top(view.area.height.saturating_sub(1))
@@ -1619,6 +1851,26 @@ impl Component for EditorView {
                 // clear status
                 cx.editor.status_msg = None;
 
+                if cx.editor.org_present.is_some() {
+                    match key.code {
+                        KeyCode::Char(' ') | KeyCode::Right | KeyCode::Char('l') => {
+                            cx.editor.next_slide();
+                            return EventResult::Consumed(None);
+                        }
+                        KeyCode::Backspace | KeyCode::Left | KeyCode::Char('h') => {
+                            cx.editor.prev_slide();
+                            return EventResult::Consumed(None);
+                        }
+                        KeyCode::Char('q') | KeyCode::Esc => {
+                            cx.editor.stop_org_present();
+                            return EventResult::Consumed(None);
+                        }
+                        _ => {
+                            return EventResult::Consumed(None);
+                        }
+                    }
+                }
+
                 let mode = cx.editor.mode();
 
                 if !self.on_next_key(OnKeyCallbackKind::PseudoPending, &mut cx, key) {
@@ -1753,7 +2005,7 @@ impl Component for EditorView {
             BufferLine::Multiple if cx.editor.documents.len() > 1 => true,
             _ => false,
         };
-        if cx.editor.zen_mode {
+        if cx.editor.zen_mode || cx.editor.org_present.is_some() {
             use_bufferline = false;
         }
 
@@ -1864,6 +2116,9 @@ impl Component for EditorView {
     }
 
     fn cursor(&self, _area: Rect, editor: &Editor) -> (Option<Position>, CursorKind) {
+        if editor.org_present.is_some() {
+            return (None, CursorKind::Hidden);
+        }
         match editor.cursor() {
             // all block cursors are drawn manually
             (pos, CursorKind::Block) => {

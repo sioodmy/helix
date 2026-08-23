@@ -470,6 +470,8 @@ pub fn render_sticky_context(
                 theme,
                 DecorationManager::default(),
                 doc.config.load().colorizer,
+                Vec::new(),
+                None,
             );
             offset_area.x += first_node_line_end as u16;
         }
@@ -522,6 +524,8 @@ pub fn render_sticky_context(
                 theme,
                 DecorationManager::default(),
                 doc.config.load().colorizer,
+                Vec::new(),
+                None,
             );
         }
 

@@ -66,7 +66,7 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg",
 resvg = "0.45"
 tiny-skia = "0.11"
 usvg = "0.45"
-mathtosvg = { path = "../mathtosvg" }
+mathtosvg = { git = "https://github.com/sioodmy/mathtosvg" }
 # dev dependencies
 criterion = { version = "0.8", default-features = false, features = ["cargo_bench_support"] }
 quickcheck = { version = "1", default-features = false }

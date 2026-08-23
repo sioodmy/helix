@@ -2324,6 +2324,7 @@ checksum = "0ceec5bc11778974d1bcb055b18002eba7f4b3518b6a0081b3af5f21666da9ad"
 [[package]]
 name = "mathtosvg"
 version = "0.1.0"
+source = "git+https://github.com/sioodmy/mathtosvg#0b30ed247396d094613d0b5e49f0934f55198dd9"
 dependencies = [
  "anyhow",
 ]
