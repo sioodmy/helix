@@ -17,6 +17,7 @@ default = ["termina", "crossterm"]
 [dependencies]
 helix-view = { path = "../helix-view", features = ["term"] }
 helix-core = { path = "../helix-core" }
+base64 = "0.22"
 
 bitflags.workspace = true
 cassowary = "0.3"

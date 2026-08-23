@@ -223,45 +223,60 @@ impl Default for FilePickerConfig {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FileExplorerStyle {
+    Snacks,
+    Mini,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FileExplorerSide {
+    Left,
+    Right,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case", default, deny_unknown_fields)]
 pub struct FileExplorerConfig {
-    /// IgnoreOptions
-    /// Enables ignoring hidden files.
-    /// Whether to hide hidden files in file explorer and global search results. Defaults to false.
-    pub hidden: bool,
-    /// Enables following symlinks.
-    /// Whether to follow symbolic links in file picker and file or directory completions. Defaults to false.
-    pub follow_symlinks: bool,
-    /// Enables reading ignore files from parent directories. Defaults to false.
-    pub parents: bool,
-    /// Enables reading `.ignore` files.
-    /// Whether to hide files listed in .ignore in file picker and global search results. Defaults to false.
-    pub ignore: bool,
-    /// Enables reading `.gitignore` files.
-    /// Whether to hide files listed in .gitignore in file picker and global search results. Defaults to false.
-    pub git_ignore: bool,
-    /// Enables reading global .gitignore, whose path is specified in git's config: `core.excludefile` option.
-    /// Whether to hide files listed in global .gitignore in file picker and global search results. Defaults to false.
-    pub git_global: bool,
-    /// Enables reading `.git/info/exclude` files.
-    /// Whether to hide files listed in .git/info/exclude in file picker and global search results. Defaults to false.
-    pub git_exclude: bool,
-    /// Whether to flatten single-child directories in file explorer. Defaults to true.
-    pub flatten_dirs: bool,
+    pub style: FileExplorerStyle,
+    pub side: FileExplorerSide,
+    pub width: u16,
+    pub min_width: u16,
+    pub max_width: u16,
+    pub ignore: Vec<String>,
+    pub show_hidden: bool,
+    pub show_git_ignored: bool,
+    pub show_separator: bool,
+    pub focused_bg: Option<String>,
+    pub unfocused_bg: Option<String>,
+    pub search_color_focused: Option<String>,
+    pub search_color_unfocused: Option<String>,
 }
 
 impl Default for FileExplorerConfig {
     fn default() -> Self {
         Self {
-            hidden: false,
-            follow_symlinks: false,
-            parents: false,
-            ignore: false,
-            git_ignore: false,
-            git_global: false,
-            git_exclude: false,
-            flatten_dirs: true,
+            style: FileExplorerStyle::Snacks,
+            side: FileExplorerSide::Left,
+            width: 32,
+            min_width: 16,
+            max_width: 60,
+            ignore: vec![
+                ".git".to_string(),
+                "target".to_string(),
+                "node_modules".to_string(),
+                "__pycache__".to_string(),
+                ".direnv".to_string(),
+            ],
+            show_hidden: false,
+            show_git_ignored: false,
+            show_separator: true,
+            focused_bg: None,
+            unfocused_bg: None,
+            search_color_focused: None,
+            search_color_unfocused: None,
         }
     }
 }
@@ -438,6 +453,14 @@ pub struct Config {
     pub buffer_picker: BufferPickerConfig,
     /// Workspace-trust configuration.
     pub workspace_trust: WorkspaceTrustConfig,
+    /// Dashboard configuration
+    pub dashboard: DashboardConfig,
+    /// Org-mode configuration  
+    pub org: OrgConfig,
+    /// Org-roam configuration
+    pub org_roam: OrgRoamConfig,
+    /// Markdown configuration
+    pub markdown: MarkdownConfig,
 }
 
 /// User-facing configuration for `[editor.workspace-trust]`.
@@ -595,7 +618,7 @@ pub struct StickyContextConfig {
 impl Default for StickyContextConfig {
     fn default() -> Self {
         StickyContextConfig {
-            enable: false,
+            enable: true,
             indicator: false,
             max_lines: 10,
             follow_cursor: false,
@@ -1291,6 +1314,10 @@ impl Default for Config {
             kitty_keyboard_protocol: Default::default(),
             buffer_picker: BufferPickerConfig::default(),
             workspace_trust: WorkspaceTrustConfig::default(),
+            dashboard: DashboardConfig::default(),
+            org: OrgConfig::default(),
+            org_roam: OrgRoamConfig::default(),
+            markdown: MarkdownConfig::default(),
         }
     }
 }
@@ -1324,6 +1351,7 @@ type Diagnostics = BTreeMap<Uri, Vec<(lsp::Diagnostic, DiagnosticProvider)>>;
 pub struct Editor {
     /// Current editing mode.
     pub mode: Mode,
+    pub file_explorer_active: bool,
     pub tree: Tree,
     pub next_document_id: DocumentId,
     pub documents: BTreeMap<DocumentId, Document>,
@@ -1395,7 +1423,24 @@ pub struct Editor {
     pub cursor_cache: CursorCache,
     pub workspace_trust: WorkspaceTrust,
     pub harpoon: Vec<std::path::PathBuf>,
+    pub image_manager: crate::image::ImageManager,
     pub zen_mode: bool,
+    pub org_present: Option<OrgPresentState>,
+}
+
+#[derive(Debug, Clone)]
+pub struct SlideRange {
+    pub title: String,
+    pub start_line: usize,
+    pub end_line: usize,
+    pub start_char: usize,
+    pub end_char: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct OrgPresentState {
+    pub current_slide: usize,
+    pub slides: Vec<SlideRange>,
 }
 
 pub type Motion = Box<dyn Fn(&mut Editor)>;
@@ -1480,6 +1525,7 @@ impl Editor {
 
         Self {
             mode: Mode::Normal,
+            file_explorer_active: false,
             tree: Tree::new(area),
             next_document_id: DocumentId::default(),
             documents: BTreeMap::new(),
@@ -1522,8 +1568,126 @@ impl Editor {
             dir_stack: VecDeque::with_capacity(DIR_STACK_CAP),
             workspace_trust,
             harpoon: Vec::new(),
+            image_manager: crate::image::ImageManager::default(),
             zen_mode: false,
+            org_present: None,
         }
+    }
+
+    pub fn start_org_present(&mut self) -> bool {
+        let (_view, doc) = current!(self);
+        let text = doc.text().slice(..);
+        let len_lines = text.len_lines();
+        if len_lines == 0 {
+            return false;
+        }
+
+        let heading_re = regex::Regex::new(r"^(\*+)\s+(.*)$").unwrap();
+        let mut headings = Vec::new();
+
+        for line_idx in 0..len_lines {
+            let line_str = text.line(line_idx).to_string();
+            if let Some(caps) = heading_re.captures(&line_str) {
+                let stars = caps.get(1).unwrap().as_str();
+                let title = caps.get(2).unwrap().as_str().to_string();
+                let level = stars.len();
+                headings.push((line_idx, level, title));
+            }
+        }
+
+        let mut slides = Vec::new();
+        if headings.is_empty() {
+            slides.push(SlideRange {
+                title: "Slide 1".to_string(),
+                start_line: 0,
+                end_line: len_lines.saturating_sub(1),
+                start_char: 0,
+                end_char: text.len_chars(),
+            });
+        } else {
+            let has_level_1 = headings.iter().any(|(_, level, _)| *level == 1);
+            let slide_headings: Vec<_> = headings
+                .into_iter()
+                .filter(|(_, level, _)| !has_level_1 || *level == 1)
+                .collect();
+
+            if slide_headings[0].0 > 0 {
+                let first_line = slide_headings[0].0;
+                slides.push(SlideRange {
+                    title: "Overview".to_string(),
+                    start_line: 0,
+                    end_line: first_line.saturating_sub(1),
+                    start_char: 0,
+                    end_char: text.line_to_char(first_line),
+                });
+            }
+
+            for (idx, (line_idx, _, title)) in slide_headings.iter().enumerate() {
+                let next_line = if idx + 1 < slide_headings.len() {
+                    slide_headings[idx + 1].0
+                } else {
+                    len_lines
+                };
+
+                let end_line = next_line.saturating_sub(1);
+                let start_char = text.line_to_char(*line_idx);
+                let end_char = if next_line < len_lines {
+                    text.line_to_char(next_line)
+                } else {
+                    text.len_chars()
+                };
+
+                slides.push(SlideRange {
+                    title: title.clone(),
+                    start_line: *line_idx,
+                    end_line,
+                    start_char,
+                    end_char,
+                });
+            }
+        }
+
+        self.org_present = Some(OrgPresentState {
+            current_slide: 0,
+            slides,
+        });
+
+        self.sync_org_present_slide();
+        true
+    }
+
+    pub fn sync_org_present_slide(&mut self) {
+        if let Some(state) = &self.org_present {
+            let slide_idx = state.current_slide;
+            if let Some(slide) = state.slides.get(slide_idx) {
+                let (view, doc) = current!(self);
+                let selection = Selection::point(slide.start_char);
+                doc.set_selection(view.id, selection);
+                crate::align_view(doc, view, crate::Align::Top);
+            }
+        }
+    }
+
+    pub fn next_slide(&mut self) {
+        if let Some(state) = &mut self.org_present {
+            if state.current_slide + 1 < state.slides.len() {
+                state.current_slide += 1;
+                self.sync_org_present_slide();
+            }
+        }
+    }
+
+    pub fn prev_slide(&mut self) {
+        if let Some(state) = &mut self.org_present {
+            if state.current_slide > 0 {
+                state.current_slide -= 1;
+                self.sync_org_present_slide();
+            }
+        }
+    }
+
+    pub fn stop_org_present(&mut self) {
+        self.org_present = None;
     }
 
     pub fn popup_border(&self) -> bool {
@@ -2790,6 +2954,7 @@ impl Default for DashboardConfig {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case", default, deny_unknown_fields)]
 pub struct OrgConfig {
+    pub notes_dir: String,
     pub todo_keywords: Vec<String>,
     pub bullets: Vec<String>,
     pub inline_images: bool,
@@ -2798,6 +2963,7 @@ pub struct OrgConfig {
 impl Default for OrgConfig {
     fn default() -> Self {
         Self {
+            notes_dir: "~/Notes".into(),
             todo_keywords: vec!["TODO".into(), "NEXT".into(), "IN-PROGRESS".into(), "WAITING".into(), "|".into(), "DONE".into(), "CANCELLED".into()],
             bullets: vec!["◉".into(), "○".into(), "✸".into(), "✿".into(), "◆".into(), "◇".into()],
             inline_images: true,
@@ -2817,6 +2983,20 @@ impl Default for OrgRoamConfig {
         Self {
             directory: Some("~/Notes".into()),
             dailies_directory: "daily".into(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case", default, deny_unknown_fields)]
+pub struct MarkdownConfig {
+    pub inline_images: bool,
+}
+
+impl Default for MarkdownConfig {
+    fn default() -> Self {
+        Self {
+            inline_images: true,
         }
     }
 }

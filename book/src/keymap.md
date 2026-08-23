@@ -301,6 +301,7 @@ This layer is a kludge of mappings, mostly pickers.
 | `j`     | Open jumplist picker                                                    | `jumplist_picker`                          |
 | `g`     | Open changed file picker                                                | `changed_file_picker`                      |
 | `G`     | Debug (experimental)                                                    | N/A                                        |
+| `t`     | Table mode (see table mode commands)                                    | N/A                                        |
 | `k`     | Show documentation for item under cursor in a [popup](#popup) (**LSP**) | `hover`                                    |
 | `s`     | Open document symbol picker (**LSP** or **TS**)                         | `lsp_or_syntax_symbol_picker`              |
 | `S`     | Open workspace symbol picker (**LSP** or **TS**)                        | `lsp_or_syntax_workspace_symbol_picker`    |
@@ -379,6 +380,8 @@ These mappings are in the style of [vim-unimpaired](https://github.com/tpope/vim
 | `[T`     | Go to previous test (**TS**)                 | `goto_prev_test`        |
 | `]p`     | Go to next paragraph                         | `goto_next_paragraph`   |
 | `[p`     | Go to previous paragraph                     | `goto_prev_paragraph`   |
+| `]\|`    | Go to next table cell                        | `table_next_cell`       |
+| `[\|`    | Go to previous table cell                    | `table_prev_cell`       |
 | `]g`     | Go to next change                            | `goto_next_change`      |
 | `[g`     | Go to previous change                        | `goto_prev_change`      |
 | `]G`     | Go to last change                            | `goto_last_change`      |

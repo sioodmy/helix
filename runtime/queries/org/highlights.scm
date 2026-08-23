@@ -6,18 +6,19 @@
 
 (tag_list (tag) @label)
 
-(timestamp) @constant.datetime
+(timestamp) @comment
+(plan) @comment
 
-(directive name: (expr) @keyword.directive (value)? @string)
+(directive) @comment
 
 (property_drawer) @comment
-(property name: (expr) @variable.parameter (value)? @string)
+(property) @comment
 
 (comment) @comment
 
-(drawer name: (expr) @keyword.directive)
-(block name: (expr) @keyword.directive)
-(dynamic_block name: (expr) @keyword.directive)
+(drawer) @comment
+(block) @comment
+(dynamic_block) @comment
 
 (bullet) @markup.list.unnumbered
 (checkbox) @punctuation.special
@@ -27,5 +28,6 @@
 ((expr) @markup.raw.inline (#match? @markup.raw.inline "^~.*~$"))
 ((expr) @markup.quote (#match? @markup.quote "^=.*=$"))
 ((expr) @markup.strikethrough (#match? @markup.strikethrough "^\\+.*\\+$"))
-((expr) @markup.link.url (#match? @markup.link.url "^\\[\\[.*\\]\\]$"))
-((expr) @markup.math (#match? @markup.math "^\\$\\$.*\\$\\$$"))
+((expr) @comment (#match? @comment "^\\[\\[.*\\]\\]$"))
+((expr) @comment (#match? @comment "^\\$\\$.*\\$\\$$"))
+((expr) @comment (#match? @comment "^(SCHEDULED:|DEADLINE:|CLOSED:)$"))

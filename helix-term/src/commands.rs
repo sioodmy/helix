@@ -1,7 +1,12 @@
 pub(crate) mod dap;
 pub(crate) mod lsp;
 pub(crate) mod syntax;
+pub(crate) mod table_mode;
 pub(crate) mod typed;
+pub(crate) mod vim_patch;
+
+use crate::static_commands_with_default;
+pub use vim_patch::*;
 
 pub use dap::*;
 use futures_util::FutureExt;
@@ -13,6 +18,7 @@ use helix_stdx::{
 use helix_vcs::{FileChange, Hunk};
 pub use lsp::*;
 pub use syntax::*;
+pub use table_mode::*;
 use tui::{
     text::{Span, Spans},
     widgets::Cell,
@@ -283,6 +289,7 @@ impl MappableCommand {
                 }));
             }
         }
+        vim_hx_hooks::hook_after_each_command(cx, self);
     }
 
     pub fn name(&self) -> &str {
@@ -302,8 +309,25 @@ impl MappableCommand {
     }
 
     #[rustfmt::skip]
+    static_commands_with_default!(
     static_commands!(
         no_op, "Do nothing",
+        table_mode_toggle, "Toggle table mode",
+        table_mode_enable, "Enable table mode",
+        table_mode_disable, "Disable table mode",
+        table_realign, "Realign the table",
+        tableize, "Convert delimited text to a table",
+        table_delete_row, "Delete current table row",
+        table_delete_column, "Delete current table column",
+        table_insert_column_after, "Insert column after cursor",
+        table_insert_column_before, "Insert column before cursor",
+        table_next_cell, "Move to next cell",
+        table_prev_cell, "Move to previous cell",
+        table_up_cell, "Move to cell above",
+        table_down_cell, "Move to cell below",
+        table_add_formula, "Add formula for table cell",
+        table_eval_formula, "Evaluate table formula line",
+        table_sort, "Sort table column",
         move_char_left, "Move left",
         move_char_right, "Move right",
         move_line_up, "Move up",
@@ -383,6 +407,11 @@ impl MappableCommand {
         search_selection_detect_word_boundaries, "Use current selection as the search pattern, automatically wrapping with `\\b` on word boundaries",
         make_search_word_bounded, "Modify current search to make it word bounded",
         global_search, "Global search in workspace folder",
+        org_live_grep, "Global search in org notes directory",
+        org_telescope, "Search headings and tags in org notes directory",
+        org_schedule, "Set a schedule date for nearest org heading",
+        org_deadline, "Set a deadline date for nearest org heading",
+        org_present, "Toggle Org Presentation mode",
         extend_line, "Select current line, if already selected, extend to another line based on the anchor",
         extend_line_below, "Select current line, if already selected, extend to next line",
         extend_line_above, "Select current line, if already selected, extend to previous line",
@@ -629,7 +658,7 @@ impl MappableCommand {
         goto_prev_tabstop, "Goto next snippet placeholder",
         rotate_selections_first, "Make the first selection your primary one",
         rotate_selections_last, "Make the last selection your primary one",
-
+    )
     );
 }
 
@@ -2077,20 +2106,25 @@ fn half_page_down(cx: &mut Context) {
 }
 
 static PENDING_SCROLL: std::sync::atomic::AtomicIsize = std::sync::atomic::AtomicIsize::new(0);
+static SPAM_CLICKED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 fn smooth_scroll(offset: isize) {
     use std::sync::atomic::Ordering;
     let current = PENDING_SCROLL.load(Ordering::SeqCst);
     if current == 0 {
         PENDING_SCROLL.store(offset, Ordering::SeqCst);
+        SPAM_CLICKED.store(false, Ordering::SeqCst);
         tokio::spawn(async move {
             loop {
                 let remaining = PENDING_SCROLL.load(Ordering::SeqCst);
                 if remaining == 0 { break; }
                 
-                // Determine step size to make it smooth (accelerates/decelerates based on remaining)
-                let step_mag = (remaining.abs() / 4).max(1).min(3);
-                let step = if remaining > 0 { step_mag } else { -step_mag };
+                let step = if SPAM_CLICKED.load(Ordering::SeqCst) {
+                    remaining
+                } else {
+                    let step_mag = (remaining.abs() / 4).max(1).min(3);
+                    if remaining > 0 { step_mag } else { -step_mag }
+                };
                 
                 crate::job::dispatch(move |editor, _| {
                     let dir = if step > 0 { Direction::Forward } else { Direction::Backward };
@@ -2104,6 +2138,7 @@ fn smooth_scroll(offset: isize) {
         });
     } else {
         PENDING_SCROLL.fetch_add(offset, Ordering::SeqCst);
+        SPAM_CLICKED.store(true, Ordering::SeqCst);
     }
 }
 
@@ -2607,6 +2642,185 @@ fn make_search_word_bounded(cx: &mut Context) {
 }
 
 pub fn global_search(cx: &mut Context) {
+    let search_root = helix_stdx::env::current_working_dir();
+    global_search_in_dir(cx, search_root);
+}
+
+pub fn org_live_grep(cx: &mut Context) {
+    let org_dir = cx.editor.config().org.notes_dir.clone();
+    let expanded = helix_stdx::path::expand_tilde(std::path::Path::new(&org_dir));
+    global_search_in_dir(cx, expanded.into_owned());
+}
+
+fn apply_org_metadata(editor: &mut Editor, prefix: &'static str, dt: chrono::NaiveDateTime) {
+    let doc = doc_mut!(editor);
+    let view = view!(editor);
+    let text = doc.text().slice(..);
+    
+    let cursor = doc.selection(view.id).primary().cursor(text);
+    let cursor_line = text.char_to_line(cursor);
+    
+    let mut heading_line = None;
+    for i in (0..=cursor_line).rev() {
+        let line = text.line(i);
+        let line_str = line.to_string();
+        if line_str.starts_with('*') {
+            heading_line = Some(i);
+            break;
+        }
+    }
+    
+    let heading_line = match heading_line {
+        Some(l) => l,
+        None => {
+            editor.set_error("No org heading found above cursor");
+            return;
+        }
+    };
+    
+    let meta_line_idx = heading_line + 1;
+    let new_meta_str = format!("{}: {}", prefix, dt.format("<%Y-%m-%d %a %H:%M>"));
+    
+    let mut transaction = None;
+    if meta_line_idx < text.len_lines() {
+        let meta_line = text.line(meta_line_idx).to_string();
+        if meta_line.trim_start().starts_with("SCHEDULED:") || meta_line.trim_start().starts_with("DEADLINE:") {
+            let re = regex::Regex::new(&format!(r"{}:\s*<[^>]+>", prefix)).unwrap();
+            if re.is_match(&meta_line) {
+                let replaced = re.replace(&meta_line, new_meta_str.as_str()).to_string();
+                let start = text.line_to_char(meta_line_idx);
+                let end = text.line_to_char((meta_line_idx + 1).min(text.len_lines()));
+                transaction = Some(helix_core::Transaction::change(doc.text(), vec![(start, end, Some(replaced.into()))].into_iter()));
+            } else {
+                let mut new_line = meta_line.clone();
+                if new_line.ends_with('\n') {
+                    new_line.pop();
+                }
+                if new_line.ends_with('\r') {
+                    new_line.pop();
+                }
+                new_line.push_str(&format!(" {}\n", new_meta_str));
+                let start = text.line_to_char(meta_line_idx);
+                let end = text.line_to_char((meta_line_idx + 1).min(text.len_lines()));
+                transaction = Some(helix_core::Transaction::change(doc.text(), vec![(start, end, Some(new_line.into()))].into_iter()));
+            }
+        }
+    }
+    
+    if transaction.is_none() {
+        let start = text.line_to_char(meta_line_idx);
+        transaction = Some(helix_core::Transaction::change(doc.text(), vec![(start, start, Some(format!("{}\n", new_meta_str).into()))].into_iter()));
+    }
+    
+    if let Some(transaction) = transaction {
+        doc.apply(&transaction, view.id);
+    }
+}
+
+pub fn org_schedule(cx: &mut Context) {
+    let picker = crate::ui::date_picker::DatePicker::new(|cx, dt| {
+        apply_org_metadata(&mut cx.editor, "SCHEDULED", dt);
+    });
+    cx.push_layer(Box::new(picker));
+}
+
+pub fn org_deadline(cx: &mut Context) {
+    let picker = crate::ui::date_picker::DatePicker::new(|cx, dt| {
+        apply_org_metadata(&mut cx.editor, "DEADLINE", dt);
+    });
+    cx.push_layer(Box::new(picker));
+}
+
+pub fn org_present(cx: &mut Context) {
+    if cx.editor.org_present.is_some() {
+        cx.editor.stop_org_present();
+        cx.editor.set_status("Presentation mode disabled");
+    } else {
+        if cx.editor.start_org_present() {
+            cx.editor.set_status("Presentation mode enabled (space/l/right: next, backspace/h/left: prev, q: quit)");
+        } else {
+            cx.editor.set_error("Failed to start presentation mode");
+        }
+    }
+}
+pub fn org_telescope(cx: &mut Context) {
+    let org_dir = cx.editor.config().org.notes_dir.clone();
+    let expanded = helix_stdx::path::expand_tilde(std::path::Path::new(&org_dir)).into_owned();
+    
+    #[derive(Debug, Clone)]
+    struct OrgHeading {
+        path: PathBuf,
+        line: usize,
+        text: String,
+        _tags: Vec<String>,
+    }
+    
+    let mut headings = Vec::new();
+    let heading_re = regex::Regex::new(r"^(?P<stars>\*+)\s+(?P<text>.*?)(?:\s+(?P<tags>:[a-zA-Z0-9_@#%:]+:))?\s*$").unwrap();
+    
+    for entry in ignore::Walk::new(&expanded) {
+        if let Ok(entry) = entry {
+            if entry.path().extension().and_then(|e| e.to_str()) == Some("org") {
+                if let Ok(content) = std::fs::read_to_string(entry.path()) {
+                    for (line_idx, line) in content.lines().enumerate() {
+                        if let Some(caps) = heading_re.captures(line) {
+                            let text = caps.name("text").unwrap().as_str().to_string();
+                            let tags = caps.name("tags").map_or(Vec::new(), |m| {
+                                m.as_str().trim_matches(':').split(':').map(|s| s.to_string()).collect()
+                            });
+                            let mut full_text = format!("{} {}", caps.name("stars").unwrap().as_str(), text);
+                            if !tags.is_empty() {
+                                full_text.push_str(&format!(" :{}:", tags.join(":")));
+                            }
+                            headings.push(OrgHeading {
+                                path: entry.path().to_path_buf(),
+                                line: line_idx,
+                                text: full_text,
+                                _tags: tags,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    let columns = [
+        PickerColumn::new("heading", |item: &OrgHeading, _: &()| item.text.clone().into()),
+        PickerColumn::new("file", |item: &OrgHeading, _: &()| {
+            let path = helix_stdx::path::get_relative_path(&item.path);
+            format!("{}:{}", path.display(), item.line + 1).into()
+        }),
+    ];
+    
+    let picker = Picker::new(
+        columns,
+        0, // align by heading
+        headings,
+        (), // no config
+        |cx, item: &OrgHeading, action| {
+            match cx.editor.open(&item.path, action) {
+                Ok(id) => {
+                    let doc = doc_mut!(cx.editor, &id);
+                    let view = view_mut!(cx.editor);
+                    let text = doc.text();
+                    let start = text.line_to_char(item.line);
+                    let end = text.line_to_char((item.line + 1).min(text.len_lines()));
+                    doc.set_selection(view.id, Selection::single(start, end));
+                    if action.align_view(view, doc.id()) {
+                        align_view(doc, view, Align::Center);
+                    }
+                }
+                Err(e) => {
+                    cx.editor.set_error(format!("Failed to open file '{}': {}", item.path.display(), e));
+                }
+            }
+        },
+    ).truncate_start(false);
+    cx.push_layer(Box::new(picker));
+}
+
+pub fn global_search_in_dir(cx: &mut Context, search_root: std::path::PathBuf) {
     #[derive(Debug)]
     struct FileResult<'a> {
         path: Cow<'a, Path>,
@@ -2630,6 +2844,7 @@ pub fn global_search(cx: &mut Context) {
         smart_case: bool,
         file_picker_config: helix_view::editor::FilePickerConfig,
         style: PathStyleConfig,
+        search_root: PathBuf,
     }
 
     let config = cx.editor.config();
@@ -2637,6 +2852,7 @@ pub fn global_search(cx: &mut Context) {
         smart_case: config.search.smart_case,
         file_picker_config: config.file_picker.clone(),
         style: PathStyleConfig::new(&cx.editor.theme),
+        search_root,
     };
 
     let columns = [
@@ -2656,9 +2872,9 @@ pub fn global_search(cx: &mut Context) {
             return async { Ok(()) }.boxed();
         }
 
-        let search_root = helix_stdx::env::current_working_dir();
+        let search_root = config.search_root.clone();
         if !search_root.exists() {
-            return async { Err(anyhow::anyhow!("Current working directory does not exist")) }
+            return async { Err(anyhow::anyhow!("Search directory does not exist")) }
                 .boxed();
         }
 
@@ -3266,7 +3482,8 @@ fn file_explorer(cx: &mut Context) {
         return;
     }
 
-    if let Ok(picker) = ui::file_browser::file_browser(root, cx.editor) {
+    if let Ok(picker) = ui::file_explorer::file_explorer(root, cx.editor) {
+        cx.editor.file_explorer_active = true;
         cx.push_layer(Box::new(overlaid(picker)));
     }
 }
@@ -3293,7 +3510,8 @@ fn file_explorer_in_current_buffer_directory(cx: &mut Context) {
         }
     };
 
-    if let Ok(picker) = ui::file_browser::file_browser(path, cx.editor) {
+    if let Ok(picker) = ui::file_explorer::file_explorer(path, cx.editor) {
+        cx.editor.file_explorer_active = true;
         cx.push_layer(Box::new(overlaid(picker)));
     }
 }
@@ -3306,7 +3524,8 @@ fn file_explorer_in_current_directory(cx: &mut Context) {
         return;
     }
 
-    if let Ok(picker) = ui::file_browser::file_browser(cwd, cx.editor) {
+    if let Ok(picker) = ui::file_explorer::file_explorer(cwd, cx.editor) {
+        cx.editor.file_explorer_active = true;
         cx.push_layer(Box::new(overlaid(picker)));
     }
 }
@@ -4504,6 +4723,10 @@ pub mod insert {
         let doc = doc_mut!(cx.editor, &doc.id());
         doc.apply(&transaction, view.id);
 
+        if c == '|' {
+            crate::commands::table_mode::auto_align_on_insert(cx, c);
+        }
+
         helix_event::dispatch(PostInsertChar { c, cx });
     }
 
@@ -5126,7 +5349,7 @@ fn paste_impl(
             // paste insert
             (Paste::Before, false) => range.from(),
             // paste append
-            (Paste::After, false) => range.to(),
+            (Paste::After, false) => vim_hx_hooks::after_paste_start_pos(text, range),
             // paste at cursor
             (Paste::Cursor, _) => range.cursor(text.slice(..)),
         };

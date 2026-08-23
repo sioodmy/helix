@@ -245,14 +245,19 @@ Note that the ignore files consulted by the file explorer when `ignore` is set t
 
 | Key | Description | Default |
 |--|--|---------|
-|`hidden` | Enables ignoring hidden files | `false`
-|`follow-symlinks` | Follow symlinks instead of ignoring them | `false`
-|`parents` | Enables reading ignore files from parent directories | `false`
-|`ignore` | Enables reading `.ignore` files | `false`
-|`git-ignore` | Enables reading `.gitignore` files | `false`
-|`git-global` | Enables reading global `.gitignore`, whose path is specified in git's config: `core.excludesfile` option | `false`
-|`git-exclude` | Enables reading `.git/info/exclude` files | `false`
-|`flatten-dirs` | Enables flattening single child directories | `true`
+|`style` | Style of the file explorer: `"snacks"` (sidebar) or `"mini"` (miller columns) | `"snacks"` |
+|`side` | Side of the file explorer: `"left"` or `"right"` | `"left"` |
+|`width` | Width of the file explorer | `32` |
+|`min-width` | Minimum width of the file explorer | `16` |
+|`max-width` | Maximum width of the file explorer | `60` |
+|`ignore` | List of folders or files to ignore | `[".git", "target", "node_modules", "__pycache__", ".direnv"]` |
+|`show-hidden` | Show hidden files | `false` |
+|`show-git-ignored` | Show files ignored by git | `false` |
+|`show-separator` | Show separator line | `true` |
+|`focused-bg` | Background color when focused | `None` |
+|`unfocused-bg` | Background color when unfocused | `None` |
+|`search-color-focused` | Search bar background when focused | `None` |
+|`search-color-unfocused` | Search bar background when unfocused | `None` |
 
 ### `[editor.buffer-picker]` Section
 

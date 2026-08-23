@@ -139,6 +139,7 @@ pub enum DocumentOpenError {
 }
 
 pub struct Document {
+    pub table_mode: bool,
     pub(crate) id: DocumentId,
     text: Rope,
     selections: HashMap<ViewId, Selection>,
@@ -731,6 +732,7 @@ impl Document {
         let old_state = None;
 
         Self {
+            table_mode: false,
             id: DocumentId::default(),
             active_snippet: None,
             path: None,
@@ -775,7 +777,7 @@ impl Document {
             syn_loader,
             previous_diagnostic_ids: HashMap::new(),
             pull_diagnostic_controller: TaskController::new(),
-            document_link_controller: TaskController::new(),
+            document_link_controller: TaskController::default(),
         }
     }
 
