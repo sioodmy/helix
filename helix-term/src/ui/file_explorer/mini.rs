@@ -88,12 +88,26 @@ impl Component for MiniExplorer {
                 KeyCode::Char('d') => {
                     if let Some((name, is_dir)) = self.entries.get(self.selected) {
                         let path = self.root.join(name);
-                        if *is_dir {
-                            let _ = std::fs::remove_dir_all(&path);
-                        } else {
-                            let _ = std::fs::remove_file(&path);
-                        }
-                        self.reload();
+                        let is_dir = *is_dir;
+                        let prompt = Prompt::new(
+                            format!("Delete {}? (y/n): ", name).into(),
+                            None,
+                            |_, _| Vec::new(),
+                            move |_cx: &mut Context, input: &str, event: PromptEvent| {
+                                if event == PromptEvent::Validate {
+                                    if input.to_lowercase() == "y" || input.to_lowercase() == "yes" {
+                                        if is_dir {
+                                            let _ = std::fs::remove_dir_all(&path);
+                                        } else {
+                                            let _ = std::fs::remove_file(&path);
+                                        }
+                                    }
+                                }
+                            }
+                        );
+                        return EventResult::Consumed(Some(Box::new(move |compositor: &mut crate::compositor::Compositor, _cx| {
+                            compositor.push(Box::new(prompt));
+                        })));
                     }
                     return EventResult::Consumed(None);
                 }

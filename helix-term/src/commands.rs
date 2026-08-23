@@ -2106,20 +2106,25 @@ fn half_page_down(cx: &mut Context) {
 }
 
 static PENDING_SCROLL: std::sync::atomic::AtomicIsize = std::sync::atomic::AtomicIsize::new(0);
+static SPAM_CLICKED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 fn smooth_scroll(offset: isize) {
     use std::sync::atomic::Ordering;
     let current = PENDING_SCROLL.load(Ordering::SeqCst);
     if current == 0 {
         PENDING_SCROLL.store(offset, Ordering::SeqCst);
+        SPAM_CLICKED.store(false, Ordering::SeqCst);
         tokio::spawn(async move {
             loop {
                 let remaining = PENDING_SCROLL.load(Ordering::SeqCst);
                 if remaining == 0 { break; }
                 
-                // Determine step size to make it smooth (accelerates/decelerates based on remaining)
-                let step_mag = (remaining.abs() / 4).max(1).min(3);
-                let step = if remaining > 0 { step_mag } else { -step_mag };
+                let step = if SPAM_CLICKED.load(Ordering::SeqCst) {
+                    remaining
+                } else {
+                    let step_mag = (remaining.abs() / 4).max(1).min(3);
+                    if remaining > 0 { step_mag } else { -step_mag }
+                };
                 
                 crate::job::dispatch(move |editor, _| {
                     let dir = if step > 0 { Direction::Forward } else { Direction::Backward };
@@ -2133,6 +2138,7 @@ fn smooth_scroll(offset: isize) {
         });
     } else {
         PENDING_SCROLL.fetch_add(offset, Ordering::SeqCst);
+        SPAM_CLICKED.store(true, Ordering::SeqCst);
     }
 }
 
