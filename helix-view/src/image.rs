@@ -35,6 +35,7 @@ pub enum ImageSource {
 pub struct ImageAnchor {
     pub doc_line: usize,
     pub char_idx: usize,
+    pub char_length: usize,
     pub source: ImageSource,
 }
 
@@ -50,7 +51,7 @@ pub struct ImagePlacement {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-enum CacheKey {
+pub enum CacheKey {
     FilePath(PathBuf),
     MathExpr(String),
 }
@@ -58,6 +59,7 @@ enum CacheKey {
 /// Central image manager, held in `Editor`.
 pub struct ImageManager {
     cache: std::cell::RefCell<HashMap<CacheKey, ImageData>>,
+    pub failed_loads: std::cell::RefCell<std::collections::HashSet<CacheKey>>,
     pub placements: std::cell::RefCell<Vec<ImagePlacement>>,
     pub pending_math: std::cell::RefCell<std::collections::HashSet<u64>>,
     pub cell_width_px: u16,
@@ -70,6 +72,7 @@ impl Default for ImageManager {
     fn default() -> Self {
         Self {
             cache: std::cell::RefCell::new(HashMap::new()),
+            failed_loads: std::cell::RefCell::new(std::collections::HashSet::new()),
             placements: std::cell::RefCell::new(Vec::new()),
             pending_math: std::cell::RefCell::new(std::collections::HashSet::new()),
             cell_width_px: 8,
@@ -115,13 +118,20 @@ impl ImageManager {
             ImageSource::File(p) => CacheKey::FilePath(p.clone()),
             ImageSource::Math(e) => CacheKey::MathExpr(e.clone()),
         };
+        if self.failed_loads.borrow().contains(&key) {
+            return None;
+        }
+
         let mut cache = self.cache.borrow_mut();
         if !cache.contains_key(&key) {
-            let data = match source {
-                ImageSource::File(path) => self.load_image_file(path, max_cols)?,
-                ImageSource::Math(expr) => self.render_math(expr, max_cols)?,
-            };
-            cache.insert(key.clone(), data);
+            if let Some(data) = match source {
+                ImageSource::File(path) => self.load_image_file(path, max_cols),
+                ImageSource::Math(expr) => self.render_math(expr, max_cols),
+            } {
+                cache.insert(key.clone(), data);
+            } else {
+                self.failed_loads.borrow_mut().insert(key.clone());
+            }
         }
         cache.get(&key).cloned()
     }

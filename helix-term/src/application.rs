@@ -132,9 +132,7 @@ impl Application {
             workspace_trust,
         );
         Self::load_configured_theme(&mut editor, &config.load(), &mut terminal, theme_mode);
-
         editor.image_manager.init(tui::kitty::is_supported());
-
         let keys = Box::new(Map::new(Arc::clone(&config), |config: &Config| {
             &config.keys
         }));
@@ -299,14 +297,15 @@ impl Application {
     /// Generate Kitty graphics protocol escape sequences for all
     /// image placements accumulated during the render phase.
     fn build_kitty_frame(&mut self) -> Vec<u8> {
-        if !self.editor.image_manager.supported {
+        let supports_graphics = self.editor.image_manager.supported;
+        if !supports_graphics {
             return Vec::new();
         }
 
         let placements = self.editor.image_manager.placements.take();
-        let mut buf = Vec::with_capacity(4096); log::info!("Kitty frame: {} placements, supported: {}", placements.len(), self.editor.image_manager.supported);
+        let mut buf = Vec::with_capacity(4096);
 
-        // Delete all previous placements
+        // Delete all previous image placements
         tui::kitty::delete_all_placements(&mut buf);
 
         if self.compositor.layer_count() > 1 || self.editor.autoinfo.is_some() || self.compositor.find::<crate::ui::EditorView>().map(|v| v.completion.is_some()).unwrap_or(false) {

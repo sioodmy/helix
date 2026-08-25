@@ -68,3 +68,4 @@ pub fn is_supported() -> bool {
     }
     std::env::var("GHOSTTY_RESOURCES_DIR").is_ok()
 }
+

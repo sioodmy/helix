@@ -108,10 +108,13 @@ impl EditorView {
         let mut org_overlays = Vec::new();
         let mut bullet_overlays = Vec::new();
         let mut link_overlays = Vec::new();
+        let mut image_overlays = Vec::new();
         let mut terminal_links = Vec::new();
         let mut tag_inlines: [Vec<helix_core::text_annotations::InlineAnnotation>; 5] = Default::default();
+        let mut image_anchors = Vec::new();
         let mut text_annotations = view.text_annotations(doc, Some(theme));
         let mut decorations = DecorationManager::default();
+
 
         if doc.language_id() == Some("org") || doc.language_id() == Some("markdown") {
             let text = doc.text().slice(..);
@@ -130,7 +133,8 @@ impl EditorView {
                 theme.find_highlight("constant"),
                 theme.find_highlight("variable"),
             ];
-            let tag_re = regex::Regex::new(r"(?:\s+(:[a-zA-Z0-9_@#%:]+:))\s*$").unwrap();
+            static TAG_RE: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+            let tag_re = TAG_RE.get_or_init(|| regex::Regex::new(r"(?:\s+(:[a-zA-Z0-9_@#%:]+:))\s*$").unwrap());
             let bullets = ["◉", "○", "✸", "✿"];
             
             let mut in_drawer = false;
@@ -176,66 +180,67 @@ impl EditorView {
                     }
                 }
                 if level > 0 && line_str.chars().nth(level) == Some(' ') {
-                    let bullet = bullets[(level - 1) % bullets.len()];
-                    for i in 0..(level - 1) {
-                        org_overlays.push(helix_core::text_annotations::Overlay::new(
-                            line_start_char + i,
-                            " ",
+                        let bullet = bullets[(level - 1) % bullets.len()];
+                        for i in 0..(level - 1) {
+                            org_overlays.push(helix_core::text_annotations::Overlay::new(
+                                line_start_char + i,
+                                " ",
+                            ));
+                        }
+                        bullet_overlays.push(helix_core::text_annotations::Overlay::new(
+                            line_start_char + level - 1,
+                            bullet,
                         ));
-                    }
-                    bullet_overlays.push(helix_core::text_annotations::Overlay::new(
-                        line_start_char + level - 1,
-                        bullet,
-                    ));
-                    
-                    if let Some(caps) = tag_re.captures(&line_str_cow) {
-                        let m = caps.get(1).unwrap();
-                        let start_local = line_str_cow[..m.start()].chars().count();
-                        let tags_str = m.as_str();
-                        
-                        let tags: Vec<_> = tags_str.split(':').filter(|s| !s.is_empty()).collect();
-                        
-                        let mut current_local = start_local;
-                        for (idx, &tag) in tags.iter().enumerate() {
-                            let hash = tag.bytes().fold(0usize, |acc, b| acc.wrapping_add(b as usize));
-                            let color_idx = hash % 5;
-                            let tag_len = tag.chars().count();
-                            
-                            tag_inlines[color_idx].push(helix_core::text_annotations::InlineAnnotation::new(
-                                line_start_char + current_local,
-                                "",
-                            ));
-                            tag_inlines[color_idx].push(helix_core::text_annotations::InlineAnnotation::new(
-                                line_start_char + current_local,
-                                tag,
-                            ));
-                            tag_inlines[color_idx].push(helix_core::text_annotations::InlineAnnotation::new(
-                                line_start_char + current_local,
-                                "",
-                            ));
-                            
-                            if idx + 1 < tags.len() {
+
+                        // Tag rendering only in non-rich-text mode.
+                        if let Some(caps) = tag_re.captures(&line_str_cow) {
+                            let m = caps.get(1).unwrap();
+                            let start_local = line_str_cow[..m.start()].chars().count();
+                            let tags_str = m.as_str();
+
+                            let tags: Vec<_> = tags_str.split(':').filter(|s| !s.is_empty()).collect();
+
+                            let mut current_local = start_local;
+                            for (idx, &tag) in tags.iter().enumerate() {
+                                let hash = tag.bytes().fold(0usize, |acc, b| acc.wrapping_add(b as usize));
+                                let color_idx = hash % 5;
+                                let tag_len = tag.chars().count();
+
                                 tag_inlines[color_idx].push(helix_core::text_annotations::InlineAnnotation::new(
                                     line_start_char + current_local,
-                                    " ",
-                                ));
-                            }
-                            
-                            let chars_to_hide = tag_len + 1;
-                            for i in 0..chars_to_hide {
-                                org_overlays.push(helix_core::text_annotations::Overlay::new(
-                                    line_start_char + current_local + i,
                                     "",
                                 ));
+                                tag_inlines[color_idx].push(helix_core::text_annotations::InlineAnnotation::new(
+                                    line_start_char + current_local,
+                                    tag,
+                                ));
+                                tag_inlines[color_idx].push(helix_core::text_annotations::InlineAnnotation::new(
+                                    line_start_char + current_local,
+                                    "",
+                                ));
+
+                                if idx + 1 < tags.len() {
+                                    tag_inlines[color_idx].push(helix_core::text_annotations::InlineAnnotation::new(
+                                        line_start_char + current_local,
+                                        " ",
+                                    ));
+                                }
+
+                                let chars_to_hide = tag_len + 1;
+                                for i in 0..chars_to_hide {
+                                    org_overlays.push(helix_core::text_annotations::Overlay::new(
+                                        line_start_char + current_local + i,
+                                        "",
+                                    ));
+                                }
+
+                                current_local += chars_to_hide;
                             }
-                            
-                            current_local += chars_to_hide;
+                            org_overlays.push(helix_core::text_annotations::Overlay::new(
+                                line_start_char + current_local,
+                                "",
+                            ));
                         }
-                        org_overlays.push(helix_core::text_annotations::Overlay::new(
-                            line_start_char + current_local,
-                            "",
-                        ));
-                    }
                 }
                 
                 if doc.table_mode || line_str_trim.starts_with('|') || line_str_trim.starts_with('+') {
@@ -291,6 +296,8 @@ impl EditorView {
                 let style = theme.find_highlight("ui.virtual.org-bullet").or_else(|| theme.find_highlight("ui.virtual"));
                 text_annotations.add_overlay(&org_overlays, style);
             }
+
+
         }
         
         if doc.language_id() == Some("org") || doc.language_id() == Some("markdown") {
@@ -478,13 +485,53 @@ impl EditorView {
 
         if images_enabled && editor.image_manager.supported {
             let doc_dir = doc.path().and_then(|p| p.parent());
-            let image_anchors = helix_view::image_detection::detect_images(
+            let view_offset = doc.view_offset(view.id);
+            let text = doc.text().slice(..);
+            let row = text.char_to_line(view_offset.anchor.min(text.len_chars()));
+            let range = Self::viewport_byte_range(text, row, inner.height);
+            let start_line = text.byte_to_line(range.start);
+            let end_line = text.byte_to_line(range.end.min(text.len_bytes()));
+            
+            // Expand the visible range slightly to catch multi-line math blocks that straddle the viewport edge
+            let extended_start = start_line.saturating_sub(50);
+            let extended_end = (end_line + 50).min(doc.text().len_lines().saturating_sub(1));
+            
+            let start_char = doc.text().line_to_char(extended_start);
+            let end_char = doc.text().line_to_char(extended_end) + doc.text().line(extended_end).len_chars();
+            let start_byte = doc.text().char_to_byte(start_char);
+            
+            image_anchors = helix_view::image_detection::detect_images(
                 doc.text(),
                 doc.language_id(),
                 doc_dir,
+                start_char,
+                end_char,
+                start_byte,
             );
 
             if !image_anchors.is_empty() {
+                let selections = doc.selection(view.id);
+                let cursor_lines: std::collections::HashSet<_> = selections
+                    .iter()
+                    .map(|s| s.cursor_line(doc.text().slice(..)))
+                    .collect();
+
+                for anchor in &image_anchors {
+                    if !cursor_lines.contains(&anchor.doc_line) {
+                        for i in 0..anchor.char_length {
+                            image_overlays.push(helix_core::text_annotations::Overlay::new(
+                                anchor.char_idx + i,
+                                "",
+                            ));
+                        }
+                    }
+                }
+
+                if !image_overlays.is_empty() {
+                    let style = theme.find_highlight("ui.virtual").or_else(|| theme.find_highlight("ui.text"));
+                    text_annotations.add_overlay(&image_overlays, style);
+                }
+
                 let max_img_cols = (inner.width * 80 / 100).max(1);
 
                 // Pre-load images so LineAnnotation can peek at cached dimensions
@@ -492,12 +539,9 @@ impl EditorView {
                     let _ = editor.image_manager.get_or_load(&anchor.source, max_img_cols);
                 }
 
-                let anchors: &'static [helix_view::image::ImageAnchor] = 
-                    Box::leak(image_anchors.into_boxed_slice());
-
                 text_annotations.add_line_annotation(
                     helix_view::annotations::inline_images::InlineImageAnnotation::new(
-                        anchors,
+                        &image_anchors,
                         &editor.image_manager,
                         max_img_cols,
                     ),
@@ -505,7 +549,7 @@ impl EditorView {
 
                 decorations.add_decoration(
                     text_decorations::InlineImageDecoration::new(
-                        anchors,
+                        &image_anchors,
                         &editor.image_manager,
                         max_img_cols,
                         inner.x,
