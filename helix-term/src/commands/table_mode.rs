@@ -244,18 +244,4 @@ pub fn auto_align_on_insert(cx: &mut Context, _c: char) {
     table_realign(cx);
 }
 
-pub fn tableize(cx: &mut Context) {
-    cx.editor.set_status("Tableized (Not yet fully implemented)".to_string());
-}
 
-pub fn table_delete_row(_cx: &mut Context) {}
-pub fn table_delete_column(_cx: &mut Context) {}
-pub fn table_insert_column_after(_cx: &mut Context) {}
-pub fn table_insert_column_before(_cx: &mut Context) {}
-pub fn table_next_cell(_cx: &mut Context) {}
-pub fn table_prev_cell(_cx: &mut Context) {}
-pub fn table_up_cell(_cx: &mut Context) {}
-pub fn table_down_cell(_cx: &mut Context) {}
-pub fn table_add_formula(_cx: &mut Context) {}
-pub fn table_eval_formula(_cx: &mut Context) {}
-pub fn table_sort(_cx: &mut Context) {}

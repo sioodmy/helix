@@ -28,6 +28,7 @@ pub struct StickyNode {
     pub anchor: usize,
     pub has_context_end: bool,
     pub doc_id: DocumentId,
+    pub doc_version: i32,
 }
 
 #[derive(Debug)]
@@ -214,6 +215,7 @@ pub fn calculate_sticky_nodes(
                 anchor: doc.view_offset(view.id).anchor,
                 has_context_end: node_byte_range.is_some(),
                 doc_id: view.doc,
+                doc_version: doc.version(),
             });
         }
     }
@@ -275,7 +277,7 @@ fn build_cached_nodes(
     context: &mut StickyNodeContext,
 ) -> Option<Vec<StickyNode>> {
     if let Some(nodes) = nodes {
-        if nodes.iter().any(|node| view.doc != node.doc_id) {
+        if nodes.iter().any(|node| view.doc != node.doc_id || doc.version() != node.doc_version) {
             return None;
         }
 
@@ -371,6 +373,7 @@ fn add_indicator(
         anchor: doc.view_offset(view.id).anchor,
         has_context_end: false,
         doc_id: view.doc,
+        doc_version: doc.version(),
     });
 
     res

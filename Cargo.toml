@@ -58,8 +58,7 @@ globset = "0.4"
 etcetera = "0.11"
 arc-swap = "1.9"
 arrayvec = "0.7"
-rusqlite = { version = "0.36", features = ["bundled"] }
-uuid = { version = "1.15", features = ["v4"] }
+
 chrono = "0.4"
 base64 = "0.22"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }

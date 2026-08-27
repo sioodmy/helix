@@ -58,13 +58,5 @@ pub fn cursor_restore(buf: &mut Vec<u8>) {
 pub fn is_supported() -> bool {
     // Forcing true to bypass tmux/ssh env var masking issues for now.
     return true;
-    if std::env::var("KITTY_PID").is_ok() || std::env::var("KITTY_WINDOW_ID").is_ok() {
-        return true;
-    }
-    if let Ok(prog) = std::env::var("TERM_PROGRAM") {
-        if matches!(prog.as_str(), "ghostty" | "WezTerm") {
-            return true;
-        }
-    }
-    std::env::var("GHOSTTY_RESOURCES_DIR").is_ok()
 }
+

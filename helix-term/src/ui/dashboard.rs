@@ -12,11 +12,18 @@ use tui::{
 
 use crate::compositor::Compositor;
 
-pub struct Dashboard {}
+pub struct Dashboard {
+    is_git: bool,
+}
 
 impl Dashboard {
     pub fn new() -> Self {
-        Self {}
+        let is_git = std::process::Command::new("git")
+            .args(&["rev-parse", "--is-inside-work-tree"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+        Self { is_git }
     }
 }
 
@@ -64,17 +71,11 @@ impl Component for Dashboard {
             surface.set_string(logo_x, logo_y + i as u16, line, logo_style);
         }
 
-        let is_git = std::process::Command::new("git")
-            .args(&["rev-parse", "--is-inside-work-tree"])
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false);
-
         let mut menu_items = vec![
             (" Find file", "f"),
             ("󰈭 Find word", "w"),
         ];
-        if is_git {
+        if self.is_git {
             menu_items.push(("󰈚 Recent files", "r"));
         }
         menu_items.push((" New file", "n"));
@@ -109,7 +110,7 @@ impl Component for Dashboard {
         surface.set_string(footer_x + tui::text::Span::raw(footer_prefix).width() as u16, footer_y, footer_link, link_style);
     }
 
-    fn handle_event(&mut self, event: &Event, cx: &mut Context) -> EventResult {
+    fn handle_event(&mut self, event: &Event, _cx: &mut Context) -> EventResult {
         if let Event::Key(KeyEvent { code, modifiers, .. }) = event {
             match code {
                 KeyCode::Char('f') if modifiers.is_empty() => {

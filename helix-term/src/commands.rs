@@ -316,18 +316,7 @@ impl MappableCommand {
         table_mode_enable, "Enable table mode",
         table_mode_disable, "Disable table mode",
         table_realign, "Realign the table",
-        tableize, "Convert delimited text to a table",
-        table_delete_row, "Delete current table row",
-        table_delete_column, "Delete current table column",
-        table_insert_column_after, "Insert column after cursor",
-        table_insert_column_before, "Insert column before cursor",
-        table_next_cell, "Move to next cell",
-        table_prev_cell, "Move to previous cell",
-        table_up_cell, "Move to cell above",
-        table_down_cell, "Move to cell below",
-        table_add_formula, "Add formula for table cell",
-        table_eval_formula, "Evaluate table formula line",
-        table_sort, "Sort table column",
+
         move_char_left, "Move left",
         move_char_right, "Move right",
         move_line_up, "Move up",
@@ -2105,65 +2094,28 @@ fn half_page_down(cx: &mut Context) {
     scroll(cx.editor, offset, Direction::Forward, false);
 }
 
-static PENDING_SCROLL: std::sync::atomic::AtomicIsize = std::sync::atomic::AtomicIsize::new(0);
-static SPAM_CLICKED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-
-fn smooth_scroll(offset: isize) {
-    use std::sync::atomic::Ordering;
-    let current = PENDING_SCROLL.load(Ordering::SeqCst);
-    if current == 0 {
-        PENDING_SCROLL.store(offset, Ordering::SeqCst);
-        SPAM_CLICKED.store(false, Ordering::SeqCst);
-        tokio::spawn(async move {
-            loop {
-                let remaining = PENDING_SCROLL.load(Ordering::SeqCst);
-                if remaining == 0 { break; }
-                
-                let step = if SPAM_CLICKED.load(Ordering::SeqCst) {
-                    remaining
-                } else {
-                    let step_mag = (remaining.abs() / 4).max(1).min(3);
-                    if remaining > 0 { step_mag } else { -step_mag }
-                };
-                
-                crate::job::dispatch(move |editor, _| {
-                    let dir = if step > 0 { Direction::Forward } else { Direction::Backward };
-                    crate::commands::scroll(editor, step.unsigned_abs() as usize, dir, true);
-                }).await;
-                
-                PENDING_SCROLL.fetch_sub(step, Ordering::SeqCst);
-                
-                tokio::time::sleep(std::time::Duration::from_millis(16)).await;
-            }
-        });
-    } else {
-        PENDING_SCROLL.fetch_add(offset, Ordering::SeqCst);
-        SPAM_CLICKED.store(true, Ordering::SeqCst);
-    }
-}
-
 fn page_cursor_up(cx: &mut Context) {
     let view = view!(cx.editor);
     let offset = view.inner_height();
-    smooth_scroll(-(offset as isize));
+    scroll(cx.editor, offset, Direction::Backward, true);
 }
 
 fn page_cursor_down(cx: &mut Context) {
     let view = view!(cx.editor);
     let offset = view.inner_height();
-    smooth_scroll(offset as isize);
+    scroll(cx.editor, offset, Direction::Forward, true);
 }
 
 fn page_cursor_half_up(cx: &mut Context) {
     let view = view!(cx.editor);
     let offset = view.inner_height() / 2;
-    smooth_scroll(-(offset as isize));
+    scroll(cx.editor, offset, Direction::Backward, true);
 }
 
 fn page_cursor_half_down(cx: &mut Context) {
     let view = view!(cx.editor);
     let offset = view.inner_height() / 2;
-    smooth_scroll(offset as isize);
+    scroll(cx.editor, offset, Direction::Forward, true);
 }
 
 #[allow(deprecated)]

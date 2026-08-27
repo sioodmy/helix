@@ -124,7 +124,7 @@ fn helix_default() -> HashMap<Mode, KeyTrie> {
             "e" => goto_prev_entry,
             "T" => goto_prev_test,
             "p" => goto_prev_paragraph,
-            "|" => table_prev_cell,
+
             "space" => add_newline_above,
         },
         "]" => { "Right bracket"
@@ -139,7 +139,7 @@ fn helix_default() -> HashMap<Mode, KeyTrie> {
             "e" => goto_next_entry,
             "T" => goto_next_test,
             "p" => goto_next_paragraph,
-            "|" => table_next_cell,
+
             "space" => add_newline_below,
         },
 
@@ -262,20 +262,7 @@ fn helix_default() -> HashMap<Mode, KeyTrie> {
             "t" => { "Table mode"
                 "m" => table_mode_toggle,
                 "r" => table_realign,
-                "t" => tableize,
-                "d" => { "Delete"
-                    "d" => table_delete_row,
-                    "c" => table_delete_column,
-                },
-                "i" => { "Insert column"
-                    "c" => table_insert_column_after,
-                    "C" => table_insert_column_before,
-                },
-                "f" => { "Formula"
-                    "a" => table_add_formula,
-                    "e" => table_eval_formula,
-                },
-                "s" => table_sort,
+
             },
             "z" => toggle_zen_mode,
             "a" => code_action,
@@ -594,7 +581,7 @@ fn vim_default() -> HashMap<Mode, KeyTrie> {
             "T" => goto_prev_test,
             "p" => goto_prev_paragraph,
             "x" => goto_prev_xml_element,
-            "|" => table_prev_cell,
+
             "space" => add_newline_above,
         },
         "]" => { "Right bracket"
@@ -610,7 +597,7 @@ fn vim_default() -> HashMap<Mode, KeyTrie> {
             "T" => goto_next_test,
             "p" => goto_next_paragraph,
             "x" => goto_next_xml_element,
-            "|" => table_next_cell,
+
             "space" => add_newline_below,
         },
 
@@ -758,20 +745,7 @@ fn vim_default() -> HashMap<Mode, KeyTrie> {
             "t" => { "Table mode"
                 "m" => table_mode_toggle,
                 "r" => table_realign,
-                "t" => tableize,
-                "d" => { "Delete"
-                    "d" => table_delete_row,
-                    "c" => table_delete_column,
-                },
-                "i" => { "Insert column"
-                    "c" => table_insert_column_after,
-                    "C" => table_insert_column_before,
-                },
-                "f" => { "Formula"
-                    "a" => table_add_formula,
-                    "e" => table_eval_formula,
-                },
-                "s" => table_sort,
+
             },
             "w" => { "Window"
                 "C-w" | "w" => rotate_view,
