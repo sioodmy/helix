@@ -1,6 +1,5 @@
 use helix_view::theme::Style;
 use helix_view::graphics::Color;
-use std::str::FromStr;
 
 #[derive(Clone, Copy)]
 pub struct Glyph {
@@ -18,10 +17,12 @@ pub fn hex_to_style(hex: &str) -> Option<Style> {
     if hex.len() != 7 || !hex.starts_with('#') {
         return None;
     }
-    let r = u8::from_str_radix(&hex[1..3], 16).ok()?;
-    let g = u8::from_str_radix(&hex[3..5], 16).ok()?;
-    let b = u8::from_str_radix(&hex[5..7], 16).ok()?;
-    Some(Style::default().fg(Color::Rgb(r, g, b)))
+    let color = u32::from_str_radix(&hex[1..], 16).ok()?;
+    Some(Style::default().fg(Color::Rgb(
+        (color >> 16) as u8,
+        (color >> 8) as u8,
+        color as u8,
+    )))
 }
 
 pub fn file_icon(name: &str) -> Glyph {

@@ -2076,7 +2076,7 @@ impl Component for EditorView {
         }
 
         let mut area = area;
-        if cx.editor.file_explorer_active && config.file_explorer.style == helix_view::editor::FileExplorerStyle::Snacks {
+        if cx.editor.file_explorer_active {
             if config.file_explorer.side == helix_view::editor::FileExplorerSide::Left {
                 area = area.clip_left(config.file_explorer.width);
             } else {

@@ -223,12 +223,7 @@ impl Default for FilePickerConfig {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum FileExplorerStyle {
-    Snacks,
-    Mini,
-}
+
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -240,7 +235,6 @@ pub enum FileExplorerSide {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case", default, deny_unknown_fields)]
 pub struct FileExplorerConfig {
-    pub style: FileExplorerStyle,
     pub side: FileExplorerSide,
     pub width: u16,
     pub min_width: u16,
@@ -258,7 +252,6 @@ pub struct FileExplorerConfig {
 impl Default for FileExplorerConfig {
     fn default() -> Self {
         Self {
-            style: FileExplorerStyle::Snacks,
             side: FileExplorerSide::Left,
             width: 32,
             min_width: 16,
