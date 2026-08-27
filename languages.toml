@@ -2469,6 +2469,9 @@ indent = { tab-width = 2, unit = "  " }
 '=' = '='
 '~' = '~'
 
+[language.indent-guides]
+render = false
+
 [[grammar]]
 name = "org"
 source = { git = "https://github.com/milisims/tree-sitter-org", rev = "698bb1a34331e68f83fc24bdd1b6f97016bb30de" }

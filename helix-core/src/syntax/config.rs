@@ -20,6 +20,17 @@ pub struct Configuration {
     pub language_server: HashMap<String, LanguageServerConfiguration>,
 }
 
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case", default)]
+pub struct IndentGuidesLanguageConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub render: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub character: Option<char>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skip_levels: Option<u8>,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct LanguageConfiguration {
@@ -86,6 +97,8 @@ pub struct LanguageConfiguration {
     pub language_servers: Vec<LanguageServerFeatures>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub indent: Option<IndentationConfiguration>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub indent_guides: Option<IndentGuidesLanguageConfig>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub debugger: Option<DebugAdapterConfig>,

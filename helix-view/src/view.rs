@@ -508,6 +508,10 @@ impl View {
                 text_annotations.add_inline_annotations(color_swatches_padding, None);
             }
         }
+        
+        if !doc.org_virtual_indents.is_empty() {
+            text_annotations.add_inline_annotations(&doc.org_virtual_indents, None);
+        }
 
         let width = self.inner_width(doc);
         let enable_cursor_line = self

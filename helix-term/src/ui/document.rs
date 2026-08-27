@@ -491,9 +491,27 @@ impl<'a> TextRenderer<'a> {
 
         let indent_width = doc.indent_style.indent_width(tab_width) as u16;
 
+        let mut draw_indent_guides = editor_config.indent_guides.render;
+        let mut indent_guide_character = editor_config.indent_guides.character.into();
+        let mut skip_levels = editor_config.indent_guides.skip_levels as usize;
+
+        if let Some(lang_config) = doc.language_config() {
+            if let Some(indent_guides) = &lang_config.indent_guides {
+                if let Some(render) = indent_guides.render {
+                    draw_indent_guides = render;
+                }
+                if let Some(character) = indent_guides.character {
+                    indent_guide_character = character.into();
+                }
+                if let Some(skip) = indent_guides.skip_levels {
+                    skip_levels = skip as usize;
+                }
+            }
+        }
+
         TextRenderer {
             surface,
-            indent_guide_char: editor_config.indent_guides.character.into(),
+            indent_guide_char: indent_guide_character,
             indent_guide_rainbow: editor_config.indent_guides.rainbow_option.clone(),
             theme,
             newline,
@@ -506,10 +524,10 @@ impl<'a> TextRenderer<'a> {
             indent_width,
             starting_indent: offset.col / indent_width as usize
                 + !offset.col.is_multiple_of(indent_width as usize) as usize
-                + editor_config.indent_guides.skip_levels as usize,
+                + skip_levels,
             indent_guide_style: basic_style,
             text_style,
-            draw_indent_guides: editor_config.indent_guides.render,
+            draw_indent_guides,
             viewport,
             offset,
         }

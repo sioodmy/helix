@@ -235,6 +235,7 @@ pub struct Document {
     // of storing a copy on every doc. Then we can remove the surrounding `Arc` and use the
     // `ArcSwap` directly.
     syn_loader: Arc<ArcSwap<syntax::Loader>>,
+    pub org_virtual_indents: Vec<InlineAnnotation>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -772,6 +773,7 @@ impl Document {
             color_swatches: None,
             document_links: Vec::new(),
             color_swatch_controller: TaskController::new(),
+            org_virtual_indents: Vec::new(),
             document_highlight_controllers: HashMap::new(),
             code_action_controllers: HashMap::new(),
             syn_loader,
@@ -1377,6 +1379,7 @@ impl Document {
                 })
                 .ok()
         });
+        self.update_org_virtual_indents();
     }
 
     /// Set the programming language for the file if you know the language but don't have the
@@ -1511,6 +1514,8 @@ impl Document {
                     None => false,
                 })
         }
+
+        self.update_org_virtual_indents();
 
         // update tree-sitter syntax tree
         if let Some(syntax) = &mut self.syntax {
@@ -1808,6 +1813,7 @@ impl Document {
             return;
         }
 
+        self.update_org_virtual_indents();
         let new_changeset = ChangeSet::new(self.text().slice(..));
         let changes = std::mem::replace(&mut self.changes, new_changeset);
         // Instead of doing this messy merge we could always commit, and based on transaction
@@ -1899,6 +1905,57 @@ impl Document {
             .language_server_language_id
             .as_deref()
             .or_else(|| self.language_name())
+    }
+
+    pub fn update_org_virtual_indents(&mut self) {
+        if self.language_id() != Some("org") {
+            if !self.org_virtual_indents.is_empty() {
+                self.org_virtual_indents.clear();
+            }
+            return;
+        }
+
+        let mut indents = Vec::new();
+        let mut current_level = 0;
+        let text = self.text();
+        
+        for line_idx in 0..text.len_lines() {
+            let line = text.line(line_idx);
+            let mut chars = line.chars();
+            let mut stars = 0;
+            let mut first_char = None;
+            for c in &mut chars {
+                first_char = Some(c);
+                break;
+            }
+            
+            let mut is_heading = false;
+            if first_char == Some('*') {
+                stars = 1;
+                for c in &mut chars {
+                    if c == '*' {
+                        stars += 1;
+                    } else if c == ' ' {
+                        is_heading = true;
+                        break;
+                    } else {
+                        break;
+                    }
+                }
+            }
+            
+            if is_heading {
+                current_level = stars;
+            } else if current_level > 0 {
+                if line.chars().any(|c| c != '\n' && c != '\r') {
+                    let spaces = " ".repeat(current_level + 1);
+                    let char_idx = text.line_to_char(line_idx);
+                    indents.push(InlineAnnotation::new(char_idx, spaces));
+                }
+            }
+        }
+        
+        self.org_virtual_indents = indents;
     }
 
     /// Corresponding [`LanguageConfiguration`].
